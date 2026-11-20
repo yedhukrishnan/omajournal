@@ -6,6 +6,7 @@
         <file alias="JournalView.qml">JournalView.qml</file>
         <file alias="EntryList.qml">EntryList.qml</file>
         <file alias="EntryEditor.qml">EntryEditor.qml</file>
+        <file alias="CalendarPanel.qml">CalendarPanel.qml</file>
         <file alias="ShortcutsOverlay.qml">ShortcutsOverlay.qml</file>
         <file alias="AccentButton.qml">AccentButton.qml</file>
         <file alias="StrengthMeter.qml">StrengthMeter.qml</file>

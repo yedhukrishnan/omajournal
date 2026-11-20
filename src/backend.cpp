@@ -14,6 +14,18 @@ Backend::Backend(Vault *vault, QObject *parent) : QObject(parent), m_vault(vault
     connect(m_vault, &Vault::unlocked, this, &Backend::load);
     connect(m_vault, &Vault::created, this, &Backend::load);
 
+    // Days only change as entries come and go; a title changing leaves them be.
+    const auto refreshDays = [this] {
+        const QVariantMap days = m_entries.entryDays();
+        if (days != m_entryDays) {
+            m_entryDays = days;
+            emit entryDaysChanged();
+        }
+    };
+    connect(&m_entries, &QAbstractItemModel::rowsInserted, this, refreshDays);
+    connect(&m_entries, &QAbstractItemModel::rowsRemoved, this, refreshDays);
+    connect(&m_entries, &QAbstractItemModel::modelReset, this, refreshDays);
+
     connect(&m_load, &QFutureWatcher<EntryStore::LoadResult>::started, this, &Backend::loadingChanged);
     connect(&m_load, &QFutureWatcher<EntryStore::LoadResult>::finished, this, [this] {
         const int generation = m_load.property("generation").toInt();
@@ -80,6 +92,11 @@ bool Backend::openEntry(const QString &id) {
 
 void Backend::registerQmlTypes() {
     qmlRegisterUncreatableType<Backend>("Omajournal", 1, 0, "Backend", "The backend comes from C++.");
+}
+
+bool Backend::openDay(const QString &day) {
+    const int row = m_entries.firstRowOnDay(day);
+    return row >= 0 && openEntry(m_entries.idAt(row));
 }
 
 void Backend::setText(const QString &text) {

@@ -35,8 +35,11 @@ Popup {
             model: [
                 { keys: "Ctrl+N", action: qsTr("New entry") },
                 { keys: "Ctrl+S", action: qsTr("Save now") },
-                { keys: "Ctrl+1", action: qsTr("Go to the timeline") },
-                { keys: "Ctrl+2", action: qsTr("Go to the editor") },
+                { keys: "Ctrl+1", action: qsTr("Go to the calendar") },
+                { keys: "Ctrl+2", action: qsTr("Go to the timeline") },
+                { keys: "Ctrl+3", action: qsTr("Go to the editor") },
+                { keys: "← → ↑ ↓", action: qsTr("Move through the calendar's days") },
+                { keys: "PgUp PgDn", action: qsTr("Previous or next month") },
                 { keys: "↑ ↓", action: qsTr("Move through the timeline") },
                 { keys: "Enter", action: qsTr("Edit the selected entry") },
                 { keys: "Ctrl+Z", action: qsTr("Undo") },

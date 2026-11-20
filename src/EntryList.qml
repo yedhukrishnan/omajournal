@@ -10,7 +10,11 @@ FocusScope {
     signal newEntryRequested()
     signal editRequested()
 
+    // In a narrow window the calendar sits above the timeline.
+    property bool showCalendar: false
+
     function focusList() { list.forceActiveFocus() }
+    function focusCalendar() { calendar.forceActiveFocus() }
 
     ColumnLayout {
         anchors.fill: parent
@@ -46,6 +50,25 @@ FocusScope {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 1
+            color: theme.colors.selection
+        }
+
+        CalendarPanel {
+            id: calendar
+            objectName: "narrowCalendar"
+            Layout.fillWidth: true
+            Layout.topMargin: 8
+            Layout.bottomMargin: 8
+            Layout.leftMargin: 4
+            Layout.rightMargin: 4
+            visible: root.showCalendar
+            Keys.onTabPressed: root.focusList()
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            visible: root.showCalendar
             color: theme.colors.selection
         }
 

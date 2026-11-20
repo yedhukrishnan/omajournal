@@ -71,10 +71,15 @@ ApplicationWindow {
     Shortcut {
         sequence: "Ctrl+1"
         enabled: win.journalOpen
-        onActivated: content.item.focusList()
+        onActivated: content.item.focusCalendar()
     }
     Shortcut {
         sequence: "Ctrl+2"
+        enabled: win.journalOpen
+        onActivated: content.item.focusList()
+    }
+    Shortcut {
+        sequence: "Ctrl+3"
         enabled: win.journalOpen
         onActivated: content.item.focusEditor()
     }

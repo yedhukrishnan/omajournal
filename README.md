@@ -2,8 +2,8 @@
 
 ![Omajournal's timeline and editor](docs/screenshot.png)
 
-An encrypted journal for [Omarchy](https://omarchy.org). Write entries in Markdown, read them back in a
-timeline, and keep them unreadable to anyone without your passphrase.
+An encrypted journal for [Omarchy](https://omarchy.org). Write entries in Markdown, find them by day on
+a calendar or in a timeline, and keep them unreadable to anyone without your passphrase.
 
 It follows the Omarchy theme, light or dark, Hyprland's window rounding, and the language picked under
 Setup > Language, all live.
@@ -38,9 +38,12 @@ so any tool can copy it without seeing what you wrote:
 |---|---|
 | Ctrl+N | New entry |
 | Ctrl+S | Save now (entries also save on their own as you write) |
-| Ctrl+1 | Go to the timeline |
-| Ctrl+2 | Go to the editor |
-| ↑ ↓ | Move through the timeline |
+| Ctrl+1 | Go to the calendar |
+| Ctrl+2 | Go to the timeline |
+| Ctrl+3 | Go to the editor |
+| ← → ↑ ↓ | In the calendar: move through the days (Enter opens one, Home goes to today) |
+| PgUp / PgDn | In the calendar: previous or next month |
+| ↑ ↓ | In the timeline: move through the entries |
 | Enter | Edit the selected entry |
 | Escape | From the editor back to the timeline |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo |

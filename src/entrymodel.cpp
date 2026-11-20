@@ -95,6 +95,22 @@ const Entry *EntryModel::find(const QString &id) const {
     return row < 0 ? nullptr : &m_entries.at(row);
 }
 
+int EntryModel::firstRowOnDay(const QString &day) const {
+    for (int row = 0; row < count(); ++row)
+        if (m_entries.at(row).created.date().toString(Qt::ISODate) == day)
+            return row;
+    return -1;
+}
+
+QVariantMap EntryModel::entryDays() const {
+    QVariantMap days;
+    for (const Entry &entry : m_entries) {
+        const QString day = entry.created.date().toString(Qt::ISODate);
+        days.insert(day, days.value(day).toInt() + 1);
+    }
+    return days;
+}
+
 QString EntryModel::idAt(int row) const { return row >= 0 && row < count() ? m_entries.at(row).id : QString(); }
 
 QString EntryModel::title(const QString &body) {

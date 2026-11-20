@@ -444,6 +444,45 @@ private slots:
         QCOMPARE(backend.currentText(), QString("Dear diary\nsecret plans, revised"));
     }
 
+    void calendarKnowsWhichDaysHaveEntries() {
+        QTemporaryDir dir;
+        Vault vault(dir.filePath("settings.json"), dir.filePath("journal"), Crypto::KdfLimits::minimum());
+        Backend backend(&vault);
+        QSignalSpy created(&vault, &Vault::created), unlocked(&vault, &Vault::unlocked);
+        vault.create("correct horse battery");
+        QTRY_COMPARE(created.size(), 1);
+        const QDateTime now = EntryStore::now();
+        const QString today = now.date().toString(Qt::ISODate);
+        const QString yesterday = now.addDays(-1).date().toString(Qt::ISODate);
+        QVERIFY(EntryStore::save(vault.entriesPath(), *vault.key(), {"aa", now.addDays(-1).addSecs(-60), "early", {}}));
+        QVERIFY(EntryStore::save(vault.entriesPath(), *vault.key(), {"bb", now.addDays(-1), "late", {}}));
+        QVERIFY(EntryStore::save(vault.entriesPath(), *vault.key(), {"cc", now, "today", {}}));
+        vault.lock();
+        vault.unlock("correct horse battery");
+        QTRY_COMPARE(unlocked.size(), 1);
+        QTRY_COMPARE(backend.entries()->count(), 3);
+
+        QSignalSpy daysChanged(&backend, &Backend::entryDaysChanged);
+        QCOMPARE(backend.entryDays().value(yesterday).toInt(), 2);
+        QCOMPARE(backend.entryDays().value(today).toInt(), 1);
+        QCOMPARE(backend.currentDay(), today);
+
+        // A day opens at its newest entry.
+        QVERIFY(backend.openDay(yesterday));
+        QCOMPARE(backend.currentId(), QString("bb"));
+        QCOMPARE(backend.currentDay(), yesterday);
+        QVERIFY(!backend.openDay(now.addDays(-30).date().toString(Qt::ISODate)));
+        QCOMPARE(backend.currentId(), QString("bb"));
+
+        // Typing changes no days; a new entry does.
+        backend.setText("late, revised");
+        QCOMPARE(daysChanged.size(), 0);
+        backend.newEntry();
+        QCOMPARE(backend.entryDays().value(today).toInt(), 2);
+        QCOMPARE(daysChanged.size(), 1);
+        QVERIFY(backend.lock());
+    }
+
     void backendKeepsTheEntryWhenASaveFails() {
         QTemporaryDir dir;
         Vault vault(dir.filePath("settings.json"), dir.filePath("journal"), Crypto::KdfLimits::minimum());
@@ -761,6 +800,26 @@ private slots:
         typeText(window, "!");
         QCOMPARE(backend.currentText(), QString::fromUtf8("Morning\u00a0pages!"));
         QTRY_COMPARE(backend.saveState(), Backend::Saved);
+
+        // The calendar takes the keyboard, and pages through months.
+        QTest::keyClick(window, Qt::Key_1, Qt::ControlModifier);
+        QTRY_VERIFY(item("calendar")->hasActiveFocus());
+        const QString month = item("calendarMonth")->property("text").toString();
+        QTest::keyClick(window, Qt::Key_PageDown);
+        QTRY_VERIFY(item("calendarMonth")->property("text").toString() != month);
+        QTest::keyClick(window, Qt::Key_Home);
+        QTRY_COMPARE(item("calendarMonth")->property("text").toString(), month);
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(backend.currentDay(), QDate::currentDate().toString(Qt::ISODate));
+
+        // Half a screen wide, the calendar folds into the timeline's pane.
+        window->resize(800, 700);
+        QTRY_VERIFY(!item("calendar")->isVisible());
+        QTRY_VERIFY(item("narrowCalendar")->isVisible());
+        QTest::keyClick(window, Qt::Key_1, Qt::ControlModifier);
+        QTRY_VERIFY(item("narrowCalendar")->hasActiveFocus());
+        window->resize(1100, 720);
+        QTRY_VERIFY(item("calendar")->isVisible());
 
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
         QVERIFY(backend.lock());

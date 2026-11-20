@@ -21,6 +21,10 @@ class Backend : public QObject {
     Q_PROPERTY(QString currentId READ currentId NOTIFY currentChanged)
     Q_PROPERTY(int currentIndex READ currentIndex NOTIFY currentIndexChanged)
     Q_PROPERTY(QDateTime currentCreated READ currentCreated NOTIFY currentChanged)
+    // The day the open entry was written (yyyy-MM-dd), where it was written.
+    Q_PROPERTY(QString currentDay READ currentDay NOTIFY currentChanged)
+    // How many entries each day (yyyy-MM-dd) has, for the calendar.
+    Q_PROPERTY(QVariantMap entryDays READ entryDays NOTIFY entryDaysChanged)
     // Only changes when another entry opens; typing goes the other way.
     Q_PROPERTY(QString currentText READ currentText NOTIFY currentChanged)
     Q_PROPERTY(SaveState saveState READ saveState NOTIFY saveStateChanged)
@@ -39,6 +43,8 @@ public:
     QString currentId() const { return m_current.id; }
     int currentIndex() const { return m_entries.indexOf(m_current.id); }
     QDateTime currentCreated() const { return m_current.created; }
+    QString currentDay() const { return m_current.created.date().toString(Qt::ISODate); }
+    QVariantMap entryDays() const { return m_entryDays; }
     QString currentText() const { return m_current.body; }
     SaveState saveState() const { return m_saveState; }
     QString saveError() const { return m_saveError; }
@@ -47,6 +53,8 @@ public:
     Q_INVOKABLE void newEntry();
     // False when the open entry couldn't be saved, which keeps it open.
     Q_INVOKABLE bool openEntry(const QString &id);
+    // Opens the newest entry of a day (yyyy-MM-dd); false if it has none.
+    Q_INVOKABLE bool openDay(const QString &day);
     Q_INVOKABLE void setText(const QString &text);
     // From the editor's document, so characters the user never touched
     // (non-breaking spaces) come through as they are.
@@ -65,6 +73,7 @@ signals:
     void currentChanged();
     void currentIndexChanged();
     void saveStateChanged();
+    void entryDaysChanged();
 
 private:
     void load();
@@ -87,4 +96,5 @@ private:
     SaveState m_saveState = Saved;
     QString m_saveError;
     QTimer m_autosave;
+    QVariantMap m_entryDays;
 };

@@ -25,9 +25,13 @@ public:
     // Adds the entry in its place, or updates the one with its id.
     void upsert(const Entry &entry);
     void remove(const QString &id);
-    int indexOf(const QString &id) const;
+    Q_INVOKABLE int indexOf(const QString &id) const;
     const Entry *find(const QString &id) const;
     Q_INVOKABLE QString idAt(int row) const;
+    // The row of the newest entry written on a day (yyyy-MM-dd), or -1.
+    int firstRowOnDay(const QString &day) const;
+    // How many entries each day (yyyy-MM-dd) has.
+    QVariantMap entryDays() const;
 
     // The first line that has text, without Markdown's heading marks.
     static QString title(const QString &body);
