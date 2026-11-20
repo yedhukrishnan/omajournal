@@ -99,28 +99,35 @@ FocusScope {
             focus: true
             model: backend.entries
             currentIndex: -1
-            keyNavigationEnabled: true
+            // The selection only ever follows the open entry. Moving opens an
+            // entry explicitly, since a ListView shifts its current index on
+            // its own as rows come and go, and that must not open anything.
+            keyNavigationEnabled: false
             highlightMoveDuration: 0
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar {}
 
-            Component.onCompleted: currentIndex = backend.currentIndex
-            // Moving through the timeline opens each entry as it is reached.
-            onCurrentIndexChanged: {
-                const id = backend.entries.idAt(currentIndex)
-                if (id !== "" && id !== backend.currentId)
+            function follow() {
+                currentIndex = model.indexOf(backend.currentId)
+                if (currentIndex >= 0)
+                    positionViewAtIndex(currentIndex, ListView.Contain)
+            }
+            function openRow(row) {
+                const id = model.idAt(row)
+                if (id !== "")
                     backend.openEntry(id)
             }
+
+            Component.onCompleted: follow()
+            Keys.onUpPressed: openRow(currentIndex - 1)
+            Keys.onDownPressed: openRow(currentIndex + 1)
             Keys.onReturnPressed: root.editRequested()
             Keys.onEnterPressed: root.editRequested()
 
             Connections {
                 target: backend
-                function onCurrentIndexChanged() {
-                    list.currentIndex = backend.currentIndex
-                    if (list.currentIndex >= 0)
-                        list.positionViewAtIndex(list.currentIndex, ListView.Contain)
-                }
+                function onCurrentIndexChanged() { list.follow() }
+                function onCurrentChanged() { list.follow() }
             }
 
             section.property: "day"
@@ -210,7 +217,7 @@ FocusScope {
                 }
 
                 onClicked: {
-                    list.currentIndex = row.index
+                    list.openRow(row.index)
                     list.forceActiveFocus()
                 }
                 onDoubleClicked: root.editRequested()

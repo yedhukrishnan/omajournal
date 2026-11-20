@@ -721,8 +721,14 @@ private slots:
         auto item = [&](const char *name) { return window->findChild<QQuickItem *>(name); };
         auto click = [&](QQuickItem *target) {
             QVERIFY(target);
-            QTest::mouseClick(window, Qt::LeftButton, {},
-                              target->mapToScene(QPointF(target->width() / 2, target->height() / 2)).toPoint());
+            // Items just shown are laid out on the next polish; until then
+            // their position is stale.
+            const auto centre = [&] { return target->mapToScene(QPointF(target->width() / 2, target->height() / 2)); };
+            QVERIFY2(QTest::qWaitFor([&] {
+                         return target->isVisible() && QRectF(0, 0, window->width(), window->height()).contains(centre());
+                     }),
+                     qPrintable(target->objectName() + " is never inside the window"));
+            QTest::mouseClick(window, Qt::LeftButton, {}, centre().toPoint());
         };
 
         // Setup: the folder, the passphrase twice, then the recovery key.
