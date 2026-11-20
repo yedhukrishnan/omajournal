@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="Main.qml">Main.qml</file>
+        <file alias="SetupWizard.qml">SetupWizard.qml</file>
+        <file alias="UnlockScreen.qml">UnlockScreen.qml</file>
+        <file alias="JournalView.qml">JournalView.qml</file>
+        <file alias="EntryList.qml">EntryList.qml</file>
+        <file alias="EntryEditor.qml">EntryEditor.qml</file>
+        <file alias="ShortcutsOverlay.qml">ShortcutsOverlay.qml</file>
+        <file alias="AccentButton.qml">AccentButton.qml</file>
+        <file alias="StrengthMeter.qml">StrengthMeter.qml</file>
+        <file alias="omajournal.svg">../share/omajournal.svg</file>
+        <file alias="i18n/en.json">i18n/en.json</file>
+    </qresource>
+</RCC>
