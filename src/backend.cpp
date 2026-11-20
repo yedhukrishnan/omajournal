@@ -5,6 +5,7 @@
 #include <QTextDocument>
 #include <QtConcurrent>
 
+#include "markdownhighlighter.h"
 #include "vault.h"
 
 Backend::Backend(Vault *vault, QObject *parent) : QObject(parent), m_vault(vault) {
@@ -92,6 +93,7 @@ bool Backend::openEntry(const QString &id) {
 
 void Backend::registerQmlTypes() {
     qmlRegisterUncreatableType<Backend>("Omajournal", 1, 0, "Backend", "The backend comes from C++.");
+    qmlRegisterType<MarkdownHighlighter>("Omajournal", 1, 0, "MarkdownHighlighter");
 }
 
 bool Backend::openDay(const QString &day) {

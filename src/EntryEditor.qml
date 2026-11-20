@@ -22,6 +22,49 @@ FocusScope {
         loadingText = false
     }
 
+    // Wraps the selection in a Markdown mark, or takes the mark away if it is
+    // already there. With nothing selected, the cursor lands between a pair.
+    function toggleMark(mark) {
+        const m = mark.length
+        const start = area.selectionStart, end = area.selectionEnd
+        const before = area.getText(Math.max(0, start - m), start)
+        const after = area.getText(end, end + m)
+        const inner = area.getText(start, end)
+        // A single star beside a double one belongs to bold, not italic.
+        const bolded = mark === "*" && area.getText(Math.max(0, start - 2), start) === "**"
+                       && area.getText(end, end + 2) === "**"
+        if (before === mark && after === mark && !bolded) {
+            area.remove(end, end + m)
+            area.remove(start - m, start)
+            area.select(start - m, end - m)
+        } else if (inner.length >= 2 * m && inner.startsWith(mark) && inner.endsWith(mark)
+                   && !(mark === "*" && inner.startsWith("**"))) {
+            area.remove(end - m, end)
+            area.remove(start, start + m)
+            area.select(start, end - 2 * m)
+        } else {
+            area.insert(end, mark)
+            area.insert(start, mark)
+            area.select(start + m, end + m)
+        }
+    }
+
+    Shortcut {
+        sequences: [StandardKey.Bold]
+        enabled: area.activeFocus
+        onActivated: root.toggleMark("**")
+    }
+    Shortcut {
+        sequences: [StandardKey.Italic]
+        enabled: area.activeFocus
+        onActivated: root.toggleMark("*")
+    }
+    Shortcut {
+        sequence: "Ctrl+E"
+        enabled: area.activeFocus
+        onActivated: root.toggleMark("`")
+    }
+
     Connections {
         target: backend
         function onCurrentChanged() { root.loadText() }
@@ -99,6 +142,18 @@ FocusScope {
                     persistentSelection: true
                     onTextChanged: if (!root.loadingText) backend.updateFromDocument(area.textDocument)
                     Keys.onEscapePressed: root.timelineRequested()
+
+                    // Markdown styled as it's typed; the text itself stays as typed.
+                    MarkdownHighlighter {
+                        id: highlighter
+                        textDocument: area.textDocument
+                        baseSize: area.font.pixelSize
+                        foreground: theme.foreground
+                        muted: theme.colors.muted
+                        accent: theme.accent
+                        codeBackground: theme.colors.selection
+                        matchBackground: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.35)
+                    }
 
                     Label {
                         x: area.leftPadding

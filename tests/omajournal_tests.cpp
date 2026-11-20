@@ -12,12 +12,17 @@
 #include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QSignalSpy>
+#include <QTextBlock>
+#include <QTextDocument>
+#include <QTextLayout>
 #include <QtTest>
 
 #include "backend.h"
 #include "crypto.h"
 #include "entrymodel.h"
 #include "entrystore.h"
+#include "markdownhighlighter.h"
+#include "textfold.h"
 #include "vault.h"
 #include "theme.h"
 #include "translator.h"
@@ -47,6 +52,15 @@ QString fakeHyprctl(const QString &directory) {
 void typeText(QWindow *window, const QString &text) {
     for (const QChar c : text)
         QTest::keyClick(window, c.toLatin1());
+}
+
+// The format the highlighter gave a character of a line.
+QTextCharFormat formatAt(QTextDocument &document, int line, int column) {
+    const QTextBlock block = document.findBlockByNumber(line);
+    for (const QTextLayout::FormatRange &range : block.layout()->formats())
+        if (column >= range.start && column < range.start + range.length)
+            return range.format;
+    return {};
 }
 
 QJsonObject readCatalog(const QString &path) {
@@ -391,6 +405,77 @@ private slots:
         QCOMPARE(EntryModel::excerpt("## Big day\n\n- one\n- two"), QString("one two"));
         QCOMPARE(EntryModel::title(""), QString());
         QCOMPARE(EntryModel::excerpt("only a title"), QString());
+    }
+
+    // --- Formatting and folding -------------------------------------------------
+
+    void foldingIgnoresCaseAndAccents() {
+        QCOMPARE(TextFold::fold(QString::fromUtf8("Café ÉCOLE ﬁn")), QString("cafe ecole fin"));
+        QList<int> map;
+        TextFold::fold(QString::fromUtf8("aé\U0001F600b"), &map);
+        QCOMPARE(map, QList<int>({0, 1, 2, 2, 4}));
+        QCOMPARE(TextFold::terms("  Page pages PAGE "), QStringList({"pages", "page"}));
+
+        const QString text = QString::fromUtf8("Crème brûlée at the café, then crème again");
+        const auto matches = TextFold::find(text, TextFold::terms("CREME cafe"));
+        QCOMPARE(matches.size(), 3);
+        QCOMPARE(text.mid(matches[0].start, matches[0].length), QString::fromUtf8("Crème"));
+        QCOMPARE(text.mid(matches[1].start, matches[1].length), QString::fromUtf8("café"));
+        QCOMPARE(text.mid(matches[2].start, matches[2].length), QString::fromUtf8("crème"));
+        QVERIFY(TextFold::find(text, {}).isEmpty());
+    }
+
+    void markdownIsStyledWithoutChangingTheText() {
+        QTextDocument document;
+        const QString text = "# Big day\n"
+                             "Some **bold**, *italic*, ~~gone~~ and `co*de*` here\n"
+                             "- [x] done\n"
+                             "> said\n"
+                             "```\n"
+                             "# not a heading\n"
+                             "```\n"
+                             "[site](https://example.com) and https://example.org";
+        document.setPlainText(text);
+        MarkdownHighlighter highlighter;
+        highlighter.setBaseSize(16);
+        highlighter.setMuted(QColor("#777777"));
+        highlighter.setAccent(QColor("#ffd60a"));
+        highlighter.setDocument(&document);
+        // A new document is styled on the next pass of the event loop.
+        highlighter.rehighlight();
+        QCOMPARE(document.toPlainText(), text);
+
+        // The heading is large and bold, its mark dimmed.
+        QCOMPARE(formatAt(document, 0, 4).fontWeight(), int(QFont::Bold));
+        QCOMPARE(formatAt(document, 0, 4).property(QTextFormat::FontPixelSize).toInt(), 26);
+        QCOMPARE(formatAt(document, 0, 0).foreground().color(), QColor("#777777"));
+
+        const QString line = text.section('\n', 1, 1);
+        QCOMPARE(formatAt(document, 1, int(line.indexOf("bold"))).fontWeight(), int(QFont::Bold));
+        QCOMPARE(formatAt(document, 1, int(line.indexOf("**"))).foreground().color(), QColor("#777777"));
+        QVERIFY(formatAt(document, 1, int(line.indexOf("italic"))).fontItalic());
+        QVERIFY(formatAt(document, 1, int(line.indexOf("gone"))).fontStrikeOut());
+        QVERIFY(formatAt(document, 1, int(line.indexOf("co*"))).fontFixedPitch());
+        // Inside code, a star is a star.
+        QVERIFY(!formatAt(document, 1, int(line.indexOf("de*"))).fontItalic());
+        QVERIFY(formatAt(document, 2, 7).fontStrikeOut());
+        QVERIFY(formatAt(document, 3, 3).fontItalic());
+
+        // A fence's lines are code, not Markdown.
+        QVERIFY(formatAt(document, 5, 3).fontFixedPitch());
+        QVERIFY(formatAt(document, 5, 3).fontWeight() != int(QFont::Bold));
+        QCOMPARE(document.findBlockByNumber(5).userState(), int(MarkdownHighlighter::InFence));
+        QCOMPARE(document.findBlockByNumber(7).userState(), int(MarkdownHighlighter::Normal));
+        QVERIFY(formatAt(document, 7, 1).fontUnderline());
+        QVERIFY(formatAt(document, 7, int(text.section('\n', 7, 7).indexOf("example.org"))).fontUnderline());
+
+        // Search terms are marked wherever they are.
+        highlighter.setMatchBackground(QColor("#00ff00"));
+        highlighter.setSearch("BIG");
+        QCOMPARE(formatAt(document, 0, 2).background().color(), QColor("#00ff00"));
+        QCOMPARE(formatAt(document, 0, 2).fontWeight(), int(QFont::Bold));
+        highlighter.setSearch("");
+        QVERIFY(formatAt(document, 0, 2).background().style() == Qt::NoBrush);
     }
 
     // --- The backend ----------------------------------------------------------
@@ -805,6 +890,27 @@ private slots:
         QTest::keyClick(window, Qt::Key_End, Qt::ControlModifier);
         typeText(window, "!");
         QCOMPARE(backend.currentText(), QString::fromUtf8("Morning\u00a0pages!"));
+        QTRY_COMPARE(backend.saveState(), Backend::Saved);
+
+        // Formatting marks toggle around the selection.
+        // A new entry starts beside existing ones, and stays open.
+        QTest::keyClick(window, Qt::Key_N, Qt::ControlModifier);
+        QCOMPARE(backend.entries()->count(), 2);
+        QCOMPARE(backend.currentText(), QString());
+        QTRY_VERIFY(item("editor")->hasActiveFocus());
+        typeText(window, "word");
+        QTest::keyClick(window, Qt::Key_A, Qt::ControlModifier);
+        QTest::keyClick(window, Qt::Key_B, Qt::ControlModifier);
+        QCOMPARE(backend.currentText(), QString("**word**"));
+        QTest::keyClick(window, Qt::Key_B, Qt::ControlModifier);
+        QCOMPARE(backend.currentText(), QString("word"));
+        QTest::keyClick(window, Qt::Key_I, Qt::ControlModifier);
+        QCOMPARE(backend.currentText(), QString("*word*"));
+        QTest::keyClick(window, Qt::Key_I, Qt::ControlModifier);
+        QTest::keyClick(window, Qt::Key_End, Qt::ControlModifier);
+        QTest::keyClick(window, Qt::Key_E, Qt::ControlModifier);
+        typeText(window, "x");
+        QCOMPARE(backend.currentText(), QString("word`x`"));
         QTRY_COMPARE(backend.saveState(), Backend::Saved);
 
         // The calendar takes the keyboard, and pages through months.
