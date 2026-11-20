@@ -352,7 +352,9 @@ private slots:
         const Crypto::SecretKey key = Crypto::SecretKey::random();
         Entry entry{EntryStore::newId(), EntryStore::now(),
                     QString::fromUtf8("# Morning\n\nNon breaking, émojis \U0001F600\n---\nnot front matter\n"),
-                    {"tags: [kept]"}};
+                    {"mood: calm"}};
+        entry.tags = {"work", "ideas"};
+        entry.location = {9.931233, 76.267304, 3000, true};
         QVERIFY(EntryStore::save(dir.path(), key, entry));
 
         QFile file(dir.filePath(entry.id + ".omj"));
@@ -367,6 +369,38 @@ private slots:
         QCOMPARE(loaded.entries.size(), 1);
         QCOMPARE(loaded.entries.first(), entry);
         QCOMPARE(loaded.entries.first().created.offsetFromUtc(), entry.created.offsetFromUtc());
+    }
+
+    void tagsAreFoundAndNormalized() {
+        QCOMPARE(EntryStore::normalizeTag("#Work"), QString("work"));
+        QCOMPARE(EntryStore::normalizeTag(QString::fromUtf8("Ünïcode_ok-2")), QString::fromUtf8("ünïcode_ok-2"));
+        QCOMPARE(EntryStore::normalizeTag("two words"), QString());
+        QCOMPARE(EntryStore::normalizeTag("-dash"), QString());
+        QCOMPARE(EntryStore::normalizeTag(""), QString());
+
+        const QString body = "# Heading is not a tag\n"
+                             "Met #Ana about #work, then #work again. Issue #42 and a&#39; entity.\n"
+                             "A link https://example.com/page#section and `#notcode`\n"
+                             "```\n#notfenced\n```\n"
+                             "#last";
+        QCOMPARE(EntryStore::inlineTags(body), QStringList({"ana", "work", "last"}));
+
+        Entry entry("x", EntryStore::now(), body);
+        entry.tags = {"zeta", "work"};
+        QCOMPARE(entry.allTags(), QStringList({"ana", "last", "work", "zeta"}));
+        QVERIFY(!entry.isBlank());
+        QVERIFY(Entry("y", EntryStore::now(), "").isBlank());
+    }
+
+    void unknownFrontMatterSurvives() {
+        // A location line this version can't read is kept as it was.
+        const auto entry = EntryStore::parse("x", "---\ncreated: 2026-11-21T09:30:00+05:30\nlocation: somewhere\n"
+                                                  "tags: [\"Quoted\", plain]\n---\nbody");
+        QVERIFY(entry);
+        QVERIFY(!entry->location.valid);
+        QCOMPARE(entry->otherFrontMatter, QStringList({"location: somewhere"}));
+        QCOMPARE(entry->tags, QStringList({"quoted", "plain"}));
+        QCOMPARE(entry->created.offsetFromUtc(), 19800);
     }
 
     void unreadableEntriesAreNamed() {

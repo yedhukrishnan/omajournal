@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QObject>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QTimeZone>
 
@@ -24,8 +25,49 @@ QDateTime now() {
     return time.toTimeZone(QTimeZone::fromSecondsAheadOfUtc(time.offsetFromUtc()));
 }
 
+QString normalizeTag(const QString &text) {
+    static const QRegularExpression valid("^[\\p{L}\\p{N}_][\\p{L}\\p{N}_-]*$");
+    QString tag = text.trimmed();
+    if (tag.startsWith('#'))
+        tag.remove(0, 1);
+    tag = tag.toLower();
+    return valid.match(tag).hasMatch() && tag.size() <= 64 ? tag : QString();
+}
+
+QStringList inlineTags(const QString &body) {
+    // A # that starts a word: not a heading's "# ", not part of a URL or of
+    // an HTML entity, and not inside code.
+    static const QRegularExpression tag("(?<![\\p{L}\\p{N}_#&/])#([\\p{L}\\p{N}_][\\p{L}\\p{N}_-]*)");
+    static const QRegularExpression code("`[^`]*`");
+    static const QRegularExpression fence("^\\s{0,3}(```|~~~)");
+    QStringList tags;
+    bool inFence = false;
+    for (QString line : body.split('\n')) {
+        if (fence.match(line).hasMatch()) {
+            inFence = !inFence;
+            continue;
+        }
+        if (inFence)
+            continue;
+        line.replace(code, " ");
+        for (auto it = tag.globalMatch(line); it.hasNext();) {
+            const QString found = normalizeTag(it.next().captured(1));
+            // A number alone (#1, #42) is a reference, not a tag.
+            if (!found.isEmpty() && !tags.contains(found) && !QRegularExpression("^\\d+$").match(found).hasMatch())
+                tags << found;
+        }
+    }
+    return tags;
+}
+
 QByteArray serialize(const Entry &entry) {
     QByteArray text = "---\ncreated: " + entry.created.toString(Qt::ISODate).toUtf8() + "\n";
+    if (!entry.tags.isEmpty())
+        text += "tags: [" + entry.tags.join(", ").toUtf8() + "]\n";
+    if (entry.location.valid)
+        text += "location: { lat: " + QByteArray::number(entry.location.latitude, 'f', 6)
+              + ", lon: " + QByteArray::number(entry.location.longitude, 'f', 6)
+              + ", accuracy: " + QByteArray::number(entry.location.accuracy, 'f', 0) + " }\n";
     for (const QString &line : entry.otherFrontMatter)
         text += line.toUtf8() + "\n";
     return text + "---\n" + entry.body.toUtf8();
@@ -43,10 +85,40 @@ std::optional<Entry> parse(const QString &id, const QByteArray &bytes, QString *
     entry.id = id;
     entry.body = text.mid(end + 5);
     for (const QString &line : text.mid(4, end - 4).split('\n')) {
-        if (line.startsWith("created:"))
+        if (line.startsWith("created:")) {
             entry.created = QDateTime::fromString(line.mid(8).trimmed(), Qt::ISODate);
-        else
+        } else if (line.startsWith("tags:")) {
+            QString list = line.mid(5).trimmed();
+            if (list.startsWith('[') && list.endsWith(']'))
+                list = list.mid(1, list.size() - 2);
+            for (const QString &item : list.split(',', Qt::SkipEmptyParts)) {
+                const QString tag = normalizeTag(QString(item).remove('"').remove('\''));
+                if (!tag.isEmpty() && !entry.tags.contains(tag))
+                    entry.tags << tag;
+            }
+        } else if (line.startsWith("location:")) {
+            static const QRegularExpression field("(lat|lon|accuracy)\\s*:\\s*(-?[0-9.]+)");
+            bool hasLat = false, hasLon = false;
+            for (auto it = field.globalMatch(line); it.hasNext();) {
+                const auto m = it.next();
+                const double value = m.captured(2).toDouble();
+                if (m.captured(1) == "lat") {
+                    entry.location.latitude = value;
+                    hasLat = true;
+                } else if (m.captured(1) == "lon") {
+                    entry.location.longitude = value;
+                    hasLon = true;
+                } else {
+                    entry.location.accuracy = value;
+                }
+            }
+            entry.location.valid = hasLat && hasLon;
+            // A line this version can't read is kept as it was.
+            if (!entry.location.valid)
+                entry.otherFrontMatter << line;
+        } else {
             entry.otherFrontMatter << line;
+        }
     }
     if (!entry.created.isValid()) {
         if (error)
@@ -114,3 +186,12 @@ bool save(const QString &directory, const Crypto::SecretKey &key, const Entry &e
 }
 
 } // namespace EntryStore
+
+QStringList Entry::allTags() const {
+    QStringList all = tags;
+    for (const QString &tag : EntryStore::inlineTags(body))
+        if (!all.contains(tag))
+            all << tag;
+    all.sort();
+    return all;
+}
