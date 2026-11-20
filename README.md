@@ -1,5 +1,7 @@
 # Omajournal
 
+![Omajournal's timeline and editor](docs/screenshot.png)
+
 An encrypted journal for [Omarchy](https://omarchy.org). Write entries in Markdown, read them back in a
 timeline, and keep them unreadable to anyone without your passphrase.
 
