@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Omajournal
+Comment=Write an encrypted journal
+Exec=omajournal
+Icon=omajournal
+Terminal=false
+Categories=Utility;Office;
+StartupWMClass=omajournal
