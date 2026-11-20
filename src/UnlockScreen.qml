@@ -7,6 +7,8 @@ import QtQuick.Layouts
 FocusScope {
     id: screen
     objectName: "unlockScreen"
+    // The Loader passes focus on only to an item that asks for it.
+    focus: true
 
     property bool recovering: false
     property string error: ""

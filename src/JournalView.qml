@@ -6,6 +6,8 @@ import QtQuick.Controls.Material
 FocusScope {
     id: view
     objectName: "journalView"
+    // The Loader passes focus on only to an item that asks for it.
+    focus: true
 
     signal lockRequested()
     signal newEntryRequested()

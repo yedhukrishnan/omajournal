@@ -7,6 +7,8 @@ import QtQuick.Layouts
 FocusScope {
     id: wizard
     objectName: "setupWizard"
+    // The Loader passes focus on only to an item that asks for it.
+    focus: true
 
     // From the moment the keys are being made until the recovery key is confirmed.
     signal creating()

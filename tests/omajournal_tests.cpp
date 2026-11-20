@@ -749,7 +749,15 @@ private slots:
         QTest::keyClick(window, Qt::Key_Return);
         QTRY_VERIFY(item("journalView"));
         QTRY_COMPARE(backend.entries()->count(), 1);
-        QTRY_COMPARE(item("editor")->property("text").toString(), QString::fromUtf8("Morning pages"));
+        QTRY_COMPARE(backend.currentText(), QString::fromUtf8("Morning\u00a0pages"));
+        // The editor's text property shows a non-breaking space as a space, but
+        // editing the reopened entry keeps it, since saving reads the document.
+        item("editor")->forceActiveFocus();
+        QTRY_VERIFY(item("editor")->hasActiveFocus());
+        QTest::keyClick(window, Qt::Key_End, Qt::ControlModifier);
+        typeText(window, "!");
+        QCOMPARE(backend.currentText(), QString::fromUtf8("Morning\u00a0pages!"));
+        QTRY_COMPARE(backend.saveState(), Backend::Saved);
 
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
         QVERIFY(backend.lock());
