@@ -52,6 +52,11 @@ const QRegularExpression &link() {
     static const QRegularExpression re("\\[([^\\]]+)\\]\\(([^)\\s]+)\\)");
     return re;
 }
+const QRegularExpression &hashTag() {
+    // The same rule as EntryStore::inlineTags.
+    static const QRegularExpression re("(?<![\\p{L}\\p{N}_#&/])#[\\p{L}\\p{N}_][\\p{L}\\p{N}_-]*");
+    return re;
+}
 const QRegularExpression &bareLink() {
     static const QRegularExpression re("\\bhttps?://[^\\s<>()]+[^\\s<>().,;:!?'\"]");
     return re;
@@ -244,6 +249,14 @@ void MarkdownHighlighter::highlightBlock(const QString &text) {
             styler.apply(int(m.capturedStart(1)), int(m.capturedLength(1)), label);
             // Its address isn't styled again as a bare link.
             styler.protect(int(m.capturedStart()), int(m.capturedLength()));
+        }
+        for (auto it = hashTag().globalMatch(text); it.hasNext();) {
+            const auto m = it.next();
+            if (styler.isProtected(int(m.capturedStart()), int(m.capturedLength())))
+                continue;
+            QTextCharFormat tag = accent;
+            tag.setFontWeight(QFont::DemiBold);
+            styler.apply(int(m.capturedStart()), int(m.capturedLength()), tag);
         }
         for (auto it = bareLink().globalMatch(text); it.hasNext();) {
             const auto m = it.next();

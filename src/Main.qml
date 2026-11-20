@@ -59,6 +59,21 @@ ApplicationWindow {
         }
     }
     Shortcut {
+        sequence: "Ctrl+T"
+        enabled: win.journalOpen
+        onActivated: content.item.startTag()
+    }
+    Shortcut {
+        sequence: "Ctrl+G"
+        enabled: win.journalOpen
+        onActivated: content.item.locate()
+    }
+    Shortcut {
+        sequence: "Ctrl+D"
+        enabled: win.journalOpen
+        onActivated: content.item.editDate()
+    }
+    Shortcut {
         sequences: [StandardKey.Find]
         enabled: win.journalOpen
         onActivated: content.item.focusSearch()

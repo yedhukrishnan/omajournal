@@ -26,6 +26,9 @@ FocusScope {
     function focusList() { timeline.focusList() }
     function focusSearch() { timeline.focusSearch() }
     function focusEditor() { editor.focusEditor() }
+    function startTag() { editor.startTag() }
+    function editDate() { editor.editDate() }
+    function locate() { editor.locate() }
 
     SplitView {
         anchors.fill: parent
@@ -59,7 +62,11 @@ FocusScope {
                     paneHeader: true
                     Keys.onTabPressed: view.focusList()
                 }
-                Item { Layout.fillHeight: true }
+                TagPanel {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.topMargin: 16
+                }
             }
         }
 

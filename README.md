@@ -9,6 +9,10 @@ a calendar or in a timeline, and keep them unreadable to anyone without your pas
 - **Live formatting:** Markdown is styled as you type (headings, **bold**, *italic*, `code`, lists,
   quotes, links), with its marks dimmed. Ctrl+B, Ctrl+I and Ctrl+E toggle them. The file stays plain
   Markdown.
+- **Tags:** add them with Ctrl+T, or write `#tags` in the text. The tag list beside the calendar narrows
+  the timeline to one.
+- **Where and when:** Ctrl+G records where you are, and Ctrl+D (or a click on the date) moves an entry to
+  another day or time.
 - **Search:** Ctrl+F narrows the timeline to entries holding every word you type, whatever their case or
   accents, and highlights the matches.
 
@@ -29,6 +33,14 @@ Setup > Language, all live.
 
 The file format is in [docs/format.md](docs/format.md).
 
+## Location
+
+Ctrl+G asks the desktop where you are, through xdg-desktop-portal's Location portal, which uses
+**GeoClue**. Install it with `omarchy-pkg-add geoclue` if Omajournal says location isn't available.
+Depending on its setup, GeoClue may look nearby Wi-Fi networks up with an online location service. The
+coordinates are stored only inside the encrypted entry. "Open in OpenStreetMap" sends them to
+openstreetmap.org, and only when you choose it.
+
 ## Sync and backup
 
 The journal is a plain folder (`~/Journal` unless you chose another) that holds only encrypted files,
@@ -47,6 +59,9 @@ so any tool can copy it without seeing what you wrote:
 | Ctrl+S | Save now (entries also save on their own as you write) |
 | Ctrl+F | Search entries (Down or Enter goes to the results, Escape closes) |
 | Ctrl+B / Ctrl+I / Ctrl+E | Bold, italic, or code around the selection |
+| Ctrl+T | Add a tag (Up/Down picks a suggestion) |
+| Ctrl+G | Add where you are |
+| Ctrl+D | Change the date and time |
 | Ctrl+1 | Go to the calendar |
 | Ctrl+2 | Go to the timeline |
 | Ctrl+3 | Go to the editor |

@@ -7,6 +7,10 @@
         <file alias="EntryList.qml">EntryList.qml</file>
         <file alias="EntryEditor.qml">EntryEditor.qml</file>
         <file alias="CalendarPanel.qml">CalendarPanel.qml</file>
+        <file alias="SmallAction.qml">SmallAction.qml</file>
+        <file alias="TagChip.qml">TagChip.qml</file>
+        <file alias="TagPanel.qml">TagPanel.qml</file>
+        <file alias="DateTimePopup.qml">DateTimePopup.qml</file>
         <file alias="ShortcutsOverlay.qml">ShortcutsOverlay.qml</file>
         <file alias="AccentButton.qml">AccentButton.qml</file>
         <file alias="StrengthMeter.qml">StrengthMeter.qml</file>

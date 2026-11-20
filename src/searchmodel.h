@@ -10,6 +10,8 @@
 class SearchModel : public QSortFilterProxyModel {
     Q_OBJECT
     Q_PROPERTY(QString query READ query WRITE setQuery NOTIFY queryChanged)
+    // Only entries carrying this tag, when set.
+    Q_PROPERTY(QString tag READ tag WRITE setTag NOTIFY queryChanged)
     Q_PROPERTY(bool active READ active NOTIFY queryChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
@@ -18,7 +20,9 @@ public:
 
     QString query() const { return m_query; }
     void setQuery(const QString &query);
-    bool active() const { return !m_terms.isEmpty(); }
+    QString tag() const { return m_tag; }
+    void setTag(const QString &tag);
+    bool active() const { return !m_terms.isEmpty() || !m_tag.isEmpty(); }
     int count() const { return rowCount(); }
 
     QVariant data(const QModelIndex &index, int role) const override;
@@ -39,6 +43,7 @@ private:
     QString folded(const QString &id, const QString &body) const;
 
     QString m_query;
+    QString m_tag;
     QStringList m_terms;
     // Folded bodies by entry, kept while the body is unchanged.
     mutable QHash<QString, QPair<QString, QString>> m_folded;

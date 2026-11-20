@@ -23,6 +23,7 @@ FocusScope {
     function closeSearch() {
         searchField.clear()
         backend.search.query = ""
+        backend.search.tag = ""
         searchOpen = false
         focusList()
     }
@@ -72,11 +73,22 @@ FocusScope {
             Layout.leftMargin: 12
             Layout.rightMargin: 12
             Layout.topMargin: 10
-            visible: root.searchOpen
+            visible: root.searchOpen || backend.search.tag !== ""
             spacing: 4
+
+            // The tag the timeline is narrowed to, if any.
+            TagChip {
+                objectName: "tagFilter"
+                visible: backend.search.tag !== ""
+                tag: backend.search.tag
+                active: true
+                removable: true
+                onRemoved: backend.search.tag = ""
+            }
 
             TextField {
                 id: searchField
+                visible: root.searchOpen
                 objectName: "searchField"
                 Layout.fillWidth: true
                 placeholderText: qsTr("Search entries")
@@ -190,7 +202,7 @@ FocusScope {
             Keys.onEnterPressed: root.editRequested()
             // Escape leaves a search, back to the whole timeline.
             Keys.onEscapePressed: (event) => {
-                if (root.searchOpen)
+                if (root.searchOpen || backend.search.tag !== "")
                     root.closeSearch()
                 else
                     event.accepted = false
@@ -231,6 +243,7 @@ FocusScope {
                 required property string title
                 required property string snippet
                 required property var created
+                required property var tags
 
                 width: ListView.view.width
                 highlighted: ListView.isCurrentItem
@@ -276,6 +289,14 @@ FocusScope {
                                 return row.created.toLocaleTimeString(Qt.locale(), Locale.ShortFormat)
                             }
                         }
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        visible: row.tags.length > 0
+                        text: row.tags.map((t) => "#" + t).join("  ")
+                        color: theme.accent
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
                     }
                     Label {
                         Layout.fillWidth: true

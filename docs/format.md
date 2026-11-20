@@ -61,11 +61,21 @@ UTF-8: front matter between `---` lines, then the body in Markdown.
 ```
 ---
 created: 2026-11-21T09:30:00+05:30
+tags: [writing]
+location: { lat: 51.507200, lon: -0.127600, accuracy: 40 }
 ---
 # Morning pages
 
 Woke early…
 ```
 
-`created` is ISO 8601 with the offset where the entry was written. Other front matter lines are kept
-as they are when an entry is saved, so a later version's fields survive an older one.
+- `created` is ISO 8601 with the offset where the entry was written. Changing an entry's date or time
+  keeps that offset.
+- `tags`, if any: `tags: [work, ideas]`. Tags are lower case, without their `#`, and made of letters,
+  digits, `_` and `-`. `#tags` written in the body also count as the entry's tags, but they aren't copied
+  here.
+- `location`, if any: `location: { lat: 9.931233, lon: 76.267304, accuracy: 120 }`. Degrees north and
+  east, with negative numbers for south and west, and the accuracy in metres (0 when unknown).
+
+Other front matter lines are kept as they are when an entry is saved, so a later version's fields
+survive an older one. That includes a `location` line this version can't read.

@@ -36,6 +36,10 @@ QVariant EntryModel::data(const QModelIndex &index, int role) const {
         return entry.created.date().toString(Qt::ISODate);
     case BodyRole:
         return entry.body;
+    case TagsRole:
+        return entry.allTags();
+    case HasLocationRole:
+        return entry.location.valid;
     case SnippetRole:
         // Styled text, so a search can mark its matches in the same place.
         return excerpt(entry.body).toHtmlEscaped();
@@ -45,7 +49,8 @@ QVariant EntryModel::data(const QModelIndex &index, int role) const {
 
 QHash<int, QByteArray> EntryModel::roleNames() const {
     return {{IdRole, "entryId"}, {TitleRole, "title"}, {ExcerptRole, "excerpt"}, {CreatedRole, "created"},
-            {DayRole, "day"}, {BodyRole, "body"}, {SnippetRole, "snippet"}};
+            {DayRole, "day"}, {BodyRole, "body"}, {SnippetRole, "snippet"},
+            {TagsRole, "tags"}, {HasLocationRole, "hasLocation"}};
 }
 
 bool EntryModel::newerFirst(const Entry &a, const Entry &b) {
@@ -66,9 +71,17 @@ void EntryModel::clear() { setEntries({}); }
 
 void EntryModel::upsert(const Entry &entry) {
     if (const int row = indexOf(entry.id); row >= 0) {
-        m_entries[row] = entry;
-        emit dataChanged(index(row), index(row), {TitleRole, ExcerptRole, BodyRole, SnippetRole});
-        return;
+        if (m_entries.at(row).created == entry.created) {
+            m_entries[row] = entry;
+            emit dataChanged(index(row), index(row),
+                             {TitleRole, ExcerptRole, BodyRole, SnippetRole, TagsRole, HasLocationRole});
+            return;
+        }
+        // A new date: it moves to where that date belongs.
+        beginRemoveRows({}, row, row);
+        m_entries.removeAt(row);
+        endRemoveRows();
+        emit countChanged();
     }
     const auto at = std::lower_bound(m_entries.begin(), m_entries.end(), entry, newerFirst);
     const int row = int(at - m_entries.begin());
@@ -114,6 +127,23 @@ QVariantMap EntryModel::entryDays() const {
         days.insert(day, days.value(day).toInt() + 1);
     }
     return days;
+}
+
+QVariantList EntryModel::tagCounts() const {
+    QHash<QString, int> counts;
+    for (const Entry &entry : m_entries)
+        for (const QString &tag : entry.allTags())
+            ++counts[tag];
+    QList<QPair<QString, int>> sorted;
+    for (auto it = counts.begin(); it != counts.end(); ++it)
+        sorted.append({it.key(), it.value()});
+    std::sort(sorted.begin(), sorted.end(), [](const auto &a, const auto &b) {
+        return a.second != b.second ? a.second > b.second : a.first < b.first;
+    });
+    QVariantList list;
+    for (const auto &[tag, count] : sorted)
+        list.append(QVariantMap{{"tag", tag}, {"count", count}});
+    return list;
 }
 
 QString EntryModel::idAt(int row) const { return row >= 0 && row < count() ? m_entries.at(row).id : QString(); }

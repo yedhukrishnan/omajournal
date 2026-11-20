@@ -5,10 +5,30 @@
 #include <QTextDocument>
 #include <QtConcurrent>
 
+#include "location.h"
 #include "markdownhighlighter.h"
 #include "vault.h"
 
-Backend::Backend(Vault *vault, QObject *parent) : QObject(parent), m_vault(vault) {
+Backend::Backend(Vault *vault, LocationSource *location, QObject *parent)
+    : QObject(parent), m_vault(vault), m_location(location ? location : new PortalLocation(this)) {
+    connect(m_location, &LocationSource::located, this, [this](double latitude, double longitude, double accuracy) {
+        const QString id = m_locatingFor;
+        m_locatingFor.clear();
+        m_locationError.clear();
+        emit locationStateChanged();
+        // Only for the entry it was asked for, if that's still open.
+        if (id.isEmpty() || id != m_current.id)
+            return;
+        m_current.location = {latitude, longitude, accuracy, true};
+        emit metadataChanged();
+        edited();
+    });
+    connect(m_location, &LocationSource::failed, this, [this](const QString &message) {
+        m_locatingFor.clear();
+        m_locationError = message;
+        emit locationStateChanged();
+    });
+
     m_search.setSourceModel(&m_entries);
     m_autosave.setSingleShot(true);
     m_autosave.setInterval(800);
@@ -27,6 +47,19 @@ Backend::Backend(Vault *vault, QObject *parent) : QObject(parent), m_vault(vault
     connect(&m_entries, &QAbstractItemModel::rowsInserted, this, refreshDays);
     connect(&m_entries, &QAbstractItemModel::rowsRemoved, this, refreshDays);
     connect(&m_entries, &QAbstractItemModel::modelReset, this, refreshDays);
+
+    // Tags change with what's written too.
+    const auto refreshTags = [this] {
+        const QVariantList counts = m_entries.tagCounts();
+        if (counts != m_tagCounts) {
+            m_tagCounts = counts;
+            emit tagCountsChanged();
+        }
+    };
+    connect(&m_entries, &QAbstractItemModel::rowsInserted, this, refreshTags);
+    connect(&m_entries, &QAbstractItemModel::rowsRemoved, this, refreshTags);
+    connect(&m_entries, &QAbstractItemModel::modelReset, this, refreshTags);
+    connect(&m_entries, &QAbstractItemModel::dataChanged, this, refreshTags);
 
     connect(&m_load, &QFutureWatcher<EntryStore::LoadResult>::started, this, &Backend::loadingChanged);
     connect(&m_load, &QFutureWatcher<EntryStore::LoadResult>::finished, this, [this] {
@@ -59,8 +92,8 @@ void Backend::load() {
 }
 
 void Backend::newEntry() {
-    // An empty new entry is already a fresh page.
-    if (m_currentIsNew && m_current.body.isEmpty()) {
+    // A blank new entry is already a fresh page.
+    if (m_currentIsNew && m_current.isBlank()) {
         emit currentChanged();
         return;
     }
@@ -69,7 +102,7 @@ void Backend::newEntry() {
     m_switching = false;
     if (!left)
         return;
-    const Entry entry{EntryStore::newId(), EntryStore::now(), {}, {}};
+    const Entry entry(EntryStore::newId(), EntryStore::now(), {});
     m_entries.upsert(entry);
     setCurrent(entry, true);
 }
@@ -107,16 +140,92 @@ void Backend::setText(const QString &text) {
     if (m_current.id.isEmpty() || text == m_current.body)
         return;
     m_current.body = text;
+    refreshInlineTags();
+    edited();
+}
+
+void Backend::edited() {
+    const int row = m_entries.indexOf(m_current.id);
     m_entries.upsert(m_current);
-    // Unsaved is decided by the text, not by counting edits, so undoing back
-    // to what was saved is clean again.
-    if (m_current.body != m_savedBody) {
+    if (m_entries.indexOf(m_current.id) != row)
+        emit currentIndexChanged();
+    // Unsaved is decided by the content, not by counting edits, so undoing
+    // back to what was saved is clean again.
+    if (!(m_current == m_saved)) {
         setSaveState(Unsaved);
         m_autosave.start();
     } else {
         m_autosave.stop();
         setSaveState(Saved);
     }
+}
+
+void Backend::refreshInlineTags() {
+    const QStringList tags = EntryStore::inlineTags(m_current.body);
+    if (tags != m_inlineTags) {
+        m_inlineTags = tags;
+        emit metadataChanged();
+    }
+}
+
+bool Backend::addTag(const QString &text) {
+    const QString tag = EntryStore::normalizeTag(text);
+    if (m_current.id.isEmpty() || tag.isEmpty())
+        return false;
+    if (!m_current.tags.contains(tag)) {
+        m_current.tags << tag;
+        emit metadataChanged();
+        edited();
+    }
+    return true;
+}
+
+void Backend::removeTag(const QString &tag) {
+    if (m_current.tags.removeAll(tag) > 0) {
+        emit metadataChanged();
+        edited();
+    }
+}
+
+bool Backend::setCreated(const QString &day, const QString &time) {
+    const QDate date = QDate::fromString(day, Qt::ISODate);
+    const QTime clock = QTime::fromString(time, "H:mm");
+    if (m_current.id.isEmpty() || !date.isValid() || !clock.isValid())
+        return false;
+    const QDateTime created(date, clock, m_current.created.timeZone());
+    if (!created.isValid())
+        return false;
+    if (created != m_current.created) {
+        m_current.created = created;
+        emit metadataChanged();
+        edited();
+    }
+    return true;
+}
+
+QVariantMap Backend::currentLocation() const {
+    if (!m_current.location.valid)
+        return {};
+    return {{"latitude", m_current.location.latitude},
+            {"longitude", m_current.location.longitude},
+            {"accuracy", m_current.location.accuracy}};
+}
+
+void Backend::locate() {
+    if (m_current.id.isEmpty() || locating())
+        return;
+    m_locatingFor = m_current.id;
+    m_locationError.clear();
+    emit locationStateChanged();
+    m_location->request();
+}
+
+void Backend::clearLocation() {
+    if (!m_current.location.valid)
+        return;
+    m_current.location = {};
+    emit metadataChanged();
+    edited();
 }
 
 QString Backend::textOf(QQuickTextDocument *document) {
@@ -133,7 +242,7 @@ void Backend::updateFromDocument(QQuickTextDocument *document) { setText(textOf(
 
 bool Backend::save() {
     m_autosave.stop();
-    if (m_current.id.isEmpty() || m_current.body == m_savedBody)
+    if (m_current.id.isEmpty() || m_current == m_saved)
         return true;
     const auto key = m_vault->key();
     QString error;
@@ -145,7 +254,7 @@ bool Backend::save() {
         setSaveState(Failed, error);
         return false;
     }
-    m_savedBody = m_current.body;
+    m_saved = m_current;
     m_currentIsNew = false;
     setSaveState(Saved);
     return true;
@@ -163,9 +272,14 @@ bool Backend::lock(bool discardUnsaved) {
     m_search.setQuery({});
     m_entries.clear();
     m_current = {};
-    m_savedBody.clear();
+    m_saved = {};
+    m_inlineTags.clear();
     m_currentIsNew = false;
     m_loadErrors.clear();
+    m_locatingFor.clear();
+    m_locationError.clear();
+    emit locationStateChanged();
+    emit metadataChanged();
     emit currentChanged();
     emit currentIndexChanged();
     emit loadingChanged();
@@ -179,16 +293,22 @@ bool Backend::leaveCurrent() {
         return true;
     if (!save())
         return false;
-    if (m_currentIsNew && m_current.body.isEmpty())
+    if (m_currentIsNew && m_current.isBlank())
         m_entries.remove(m_current.id);
     return true;
 }
 
 void Backend::setCurrent(const Entry &entry, bool isNew) {
     m_current = entry;
-    m_savedBody = isNew ? QString() : entry.body;
+    m_saved = entry;
     m_currentIsNew = isNew;
+    m_inlineTags = EntryStore::inlineTags(entry.body);
+    if (!m_locationError.isEmpty()) {
+        m_locationError.clear();
+        emit locationStateChanged();
+    }
     setSaveState(Saved);
+    emit metadataChanged();
     emit currentChanged();
     emit currentIndexChanged();
 }

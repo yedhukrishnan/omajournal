@@ -21,6 +21,7 @@
 #include "crypto.h"
 #include "entrymodel.h"
 #include "entrystore.h"
+#include "location.h"
 #include "markdownhighlighter.h"
 #include "searchmodel.h"
 #include "textfold.h"
@@ -63,6 +64,15 @@ QTextCharFormat formatAt(QTextDocument &document, int line, int column) {
             return range.format;
     return {};
 }
+
+// Answers location requests with what the test says, when it says.
+class FakeLocation : public LocationSource {
+    Q_OBJECT
+public:
+    using LocationSource::LocationSource;
+    void request() override { ++requests; }
+    int requests = 0;
+};
 
 QJsonObject readCatalog(const QString &path) {
     QFile file(path);
@@ -650,6 +660,85 @@ private slots:
         QVERIFY(backend.lock());
     }
 
+    void tagsLocationAndDateAreSavedWithTheEntry() {
+        QTemporaryDir dir;
+        Vault vault(dir.filePath("settings.json"), dir.filePath("journal"), Crypto::KdfLimits::minimum());
+        FakeLocation location;
+        Backend backend(&vault, &location);
+        QSignalSpy created(&vault, &Vault::created), unlocked(&vault, &Vault::unlocked);
+        vault.create("correct horse battery");
+        QTRY_COMPARE(created.size(), 1);
+        QTRY_VERIFY(!backend.loading());
+
+        backend.newEntry();
+        const QString first = backend.currentId();
+        // A tag alone is something to keep, so the entry is no longer blank.
+        QVERIFY(backend.addTag("#Work"));
+        QVERIFY(!backend.addTag("two words"));
+        QCOMPARE(backend.currentTags(), QStringList({"work"}));
+        QCOMPARE(backend.saveState(), Backend::Unsaved);
+        QTRY_COMPARE(backend.saveState(), Backend::Saved);
+
+        backend.setText("Notes on #idea and #work");
+        QCOMPARE(backend.currentInlineTags(), QStringList({"idea", "work"}));
+        QCOMPARE(backend.tagCounts().first().toMap().value("tag").toString(), QString("idea"));
+        QCOMPARE(backend.tagCounts().size(), 2);
+
+        // The location arrives later, for the entry it was asked for.
+        backend.locate();
+        QVERIFY(backend.locating());
+        QCOMPARE(location.requests, 1);
+        emit location.located(9.931233, 76.267304, 120);
+        QVERIFY(!backend.locating());
+        QCOMPARE(backend.currentLocation().value("latitude").toDouble(), 9.931233);
+
+        // A day and time of its own, in the offset it was written with.
+        const int offset = backend.currentCreated().offsetFromUtc();
+        const QString yesterday = backend.currentCreated().date().addDays(-1).toString(Qt::ISODate);
+        QVERIFY(!backend.setCreated("2026-02-30", "07:05"));
+        QVERIFY(!backend.setCreated(yesterday, "25:00"));
+        QVERIFY(backend.setCreated(yesterday, "7:05"));
+        QCOMPARE(backend.currentDay(), yesterday);
+        QCOMPARE(backend.currentTime(), QString("07:05"));
+        QCOMPARE(backend.currentCreated().offsetFromUtc(), offset);
+        QTRY_COMPARE(backend.saveState(), Backend::Saved);
+
+        // A second entry, today, now sorts above the first.
+        backend.newEntry();
+        backend.setText("Today");
+        QCOMPARE(backend.entries()->idAt(1), first);
+        QCOMPARE(backend.entryDays().value(yesterday).toInt(), 1);
+
+        // An answer for an entry that's no longer open is dropped.
+        backend.locate();
+        QVERIFY(backend.openEntry(first));
+        emit location.located(1, 2, 3);
+        QCOMPARE(backend.currentLocation().value("latitude").toDouble(), 9.931233);
+        backend.locate();
+        emit location.failed("No location here.");
+        QCOMPARE(backend.locationError(), QString("No location here."));
+
+        // A tag narrows the timeline.
+        backend.search()->setTag("idea");
+        QCOMPARE(backend.search()->count(), 1);
+        QVERIFY(backend.search()->active());
+        backend.search()->setTag("");
+
+        backend.removeTag("work");
+        QCOMPARE(backend.currentTags(), QStringList());
+        QVERIFY(backend.lock());
+        vault.unlock("correct horse battery");
+        QTRY_COMPARE(unlocked.size(), 1);
+        QTRY_COMPARE(backend.entries()->count(), 2);
+        QVERIFY(backend.openEntry(first));
+        QCOMPARE(backend.currentTags(), QStringList());
+        QCOMPARE(backend.currentInlineTags(), QStringList({"idea", "work"}));
+        QCOMPARE(backend.currentLocation().value("longitude").toDouble(), 76.267304);
+        QCOMPARE(backend.currentTime(), QString("07:05"));
+        QCOMPARE(backend.currentDay(), yesterday);
+        QVERIFY(backend.lock());
+    }
+
     void backendKeepsTheEntryWhenASaveFails() {
         QTemporaryDir dir;
         Vault vault(dir.filePath("settings.json"), dir.filePath("journal"), Crypto::KdfLimits::minimum());
@@ -865,7 +954,8 @@ private slots:
         QCoreApplication::installTranslator(&translator);
         Theme theme(dir.path());
         Vault vault(dir.filePath("settings.json"), dir.filePath("journal"), Crypto::KdfLimits::minimum());
-        Backend backend(&vault);
+        FakeLocation location;
+        Backend backend(&vault, &location);
 
         QQmlApplicationEngine engine;
         QStringList warnings;
@@ -1010,6 +1100,47 @@ private slots:
         QTRY_VERIFY(!backend.search()->active());
         QTRY_VERIFY(!item("searchField")->isVisible());
         QCOMPARE(item("timeline")->property("count").toInt(), 2);
+
+        // Ctrl+T adds a tag, Ctrl+G asks where we are, Ctrl+D changes the time.
+        QTest::keyClick(window, Qt::Key_T, Qt::ControlModifier);
+        QTRY_VERIFY(item("tagField")->hasActiveFocus());
+        typeText(window, "Trip");
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(backend.currentTags(), QStringList({"trip"}));
+        QTRY_VERIFY(item("editor")->hasActiveFocus());
+        QTest::keyClick(window, Qt::Key_G, Qt::ControlModifier);
+        QCOMPARE(location.requests, 1);
+        emit location.failed("Location isn't available here.");
+        QTRY_VERIFY(item("locationError")->isVisible());
+        QTest::keyClick(window, Qt::Key_G, Qt::ControlModifier);
+        emit location.located(51.5, -0.12, 50);
+        QTRY_VERIFY(item("locationChip")->isVisible());
+        QVERIFY(!item("locationError")->isVisible());
+        QTest::keyClick(window, Qt::Key_D, Qt::ControlModifier);
+        auto *dateTime = window->findChild<QObject *>("dateTimePopup");
+        QTRY_VERIFY(dateTime->property("opened").toBool());
+        QTRY_VERIFY(item("timeField")->hasActiveFocus());
+        QTest::keyClick(window, Qt::Key_A, Qt::ControlModifier);
+        typeText(window, "06:30");
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_VERIFY(!dateTime->property("visible").toBool());
+        QCOMPARE(backend.currentTime(), QString("06:30"));
+        QTRY_COMPARE(backend.saveState(), Backend::Saved);
+
+        // Tags already in use are suggested as you type.
+        QTest::keyClick(window, Qt::Key_N, Qt::ControlModifier);
+        QTRY_VERIFY(item("editor")->hasActiveFocus());
+        typeText(window, "Another");
+        QTest::keyClick(window, Qt::Key_T, Qt::ControlModifier);
+        QTRY_VERIFY(item("tagField")->hasActiveFocus());
+        typeText(window, "t");
+        auto *suggestions = window->findChild<QObject *>("tagSuggestions");
+        QTRY_VERIFY(suggestions->property("visible").toBool());
+        QTest::keyClick(window, Qt::Key_Down);
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(backend.currentTags(), QStringList({"trip"}));
+        QTRY_VERIFY(!suggestions->property("visible").toBool());
+        QTRY_COMPARE(backend.saveState(), Backend::Saved);
 
         // The calendar takes the keyboard, and pages through months.
         QTest::keyClick(window, Qt::Key_1, Qt::ControlModifier);

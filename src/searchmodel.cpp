@@ -6,6 +6,7 @@
 SearchModel::SearchModel(QObject *parent) : QSortFilterProxyModel(parent) {
     setDynamicSortFilter(true);
     // Edits refilter, since what an entry says decides whether it matches.
+    // Every role changed by an edit refilters (Qt checks only the filter role).
     setFilterRole(EntryModel::BodyRole);
     for (const auto signal : {&QAbstractItemModel::rowsInserted, &QAbstractItemModel::rowsRemoved})
         connect(this, signal, this, &SearchModel::countChanged);
@@ -35,6 +36,16 @@ void SearchModel::setQuery(const QString &query) {
     emit countChanged();
 }
 
+void SearchModel::setTag(const QString &tag) {
+    if (tag == m_tag)
+        return;
+    beginFilterChange();
+    m_tag = tag;
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+    emit queryChanged();
+    emit countChanged();
+}
+
 QString SearchModel::folded(const QString &id, const QString &body) const {
     auto it = m_folded.find(id);
     if (it == m_folded.end() || it->first != body)
@@ -43,9 +54,11 @@ QString SearchModel::folded(const QString &id, const QString &body) const {
 }
 
 bool SearchModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const {
+    const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
+    if (!m_tag.isEmpty() && !index.data(EntryModel::TagsRole).toStringList().contains(m_tag))
+        return false;
     if (m_terms.isEmpty())
         return true;
-    const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
     const QString text = folded(index.data(EntryModel::IdRole).toString(), index.data(EntryModel::BodyRole).toString());
     for (const QString &term : m_terms)
         if (!text.contains(term))
@@ -54,7 +67,7 @@ bool SearchModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParen
 }
 
 QVariant SearchModel::data(const QModelIndex &index, int role) const {
-    if (role == EntryModel::SnippetRole && active())
+    if (role == EntryModel::SnippetRole && !m_terms.isEmpty())
         return snippet(QSortFilterProxyModel::data(index, EntryModel::BodyRole).toString(), m_terms);
     return QSortFilterProxyModel::data(index, role);
 }

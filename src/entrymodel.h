@@ -11,7 +11,17 @@ class EntryModel : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
 public:
-    enum Role { IdRole = Qt::UserRole + 1, TitleRole, ExcerptRole, CreatedRole, DayRole, BodyRole, SnippetRole };
+    enum Role {
+        IdRole = Qt::UserRole + 1,
+        TitleRole,
+        ExcerptRole,
+        CreatedRole,
+        DayRole,
+        BodyRole,
+        SnippetRole,
+        TagsRole,
+        HasLocationRole
+    };
 
     explicit EntryModel(QObject *parent = nullptr) : QAbstractListModel(parent) {}
 
@@ -22,7 +32,8 @@ public:
 
     void setEntries(QList<Entry> entries);
     void clear();
-    // Adds the entry in its place, or updates the one with its id.
+    // Adds the entry in its place, or updates the one with its id, moving it
+    // if its date changed.
     void upsert(const Entry &entry);
     void remove(const QString &id);
     Q_INVOKABLE int indexOf(const QString &id) const;
@@ -32,6 +43,9 @@ public:
     int firstRowOnDay(const QString &day) const;
     // How many entries each day (yyyy-MM-dd) has.
     QVariantMap entryDays() const;
+    // Every tag and how many entries carry it, most used first, as
+    // [{tag, count}].
+    QVariantList tagCounts() const;
 
     // The first line that has text, without Markdown's heading marks.
     static QString title(const QString &body);
