@@ -689,6 +689,9 @@ private slots:
         // Setup: the folder, the passphrase twice, then the recovery key.
         QTRY_VERIFY(item("setupWizard"));
         QCOMPARE(item("folderField")->property("text").toString(), vault.path());
+        // The main action is filled with the accent, whatever Material.background says.
+        auto *continueBackground = item("continueButton")->property("background").value<QQuickItem *>();
+        QCOMPARE(continueBackground->property("color").value<QColor>(), theme.accent());
         click(item("continueButton"));
         QTRY_VERIFY(item("passphraseField")->hasActiveFocus());
         typeText(window, "correct horse battery");

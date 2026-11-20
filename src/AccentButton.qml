@@ -18,4 +18,15 @@ Button {
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }
+    // Material picks a highlighted button's fill from Material.background,
+    // which the window sets to the theme's, so the accent is drawn here.
+    background: Rectangle {
+        implicitWidth: 64
+        implicitHeight: 40
+        radius: theme.radius
+        color: !button.enabled ? theme.colors.selection
+             : button.down ? Qt.darker(theme.accent, 1.15)
+             : button.hovered ? Qt.lighter(theme.accent, 1.08)
+             : theme.accent
+    }
 }
