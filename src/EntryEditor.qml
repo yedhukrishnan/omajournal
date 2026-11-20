@@ -153,6 +153,7 @@ FocusScope {
                         accent: theme.accent
                         codeBackground: theme.colors.selection
                         matchBackground: Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.35)
+                        search: backend.search.query
                     }
 
                     Label {

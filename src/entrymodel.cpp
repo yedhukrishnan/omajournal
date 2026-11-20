@@ -34,13 +34,18 @@ QVariant EntryModel::data(const QModelIndex &index, int role) const {
     case DayRole:
         // The day where it was written, which the stored offset keeps.
         return entry.created.date().toString(Qt::ISODate);
+    case BodyRole:
+        return entry.body;
+    case SnippetRole:
+        // Styled text, so a search can mark its matches in the same place.
+        return excerpt(entry.body).toHtmlEscaped();
     }
     return {};
 }
 
 QHash<int, QByteArray> EntryModel::roleNames() const {
     return {{IdRole, "entryId"}, {TitleRole, "title"}, {ExcerptRole, "excerpt"}, {CreatedRole, "created"},
-            {DayRole, "day"}};
+            {DayRole, "day"}, {BodyRole, "body"}, {SnippetRole, "snippet"}};
 }
 
 bool EntryModel::newerFirst(const Entry &a, const Entry &b) {
@@ -62,7 +67,7 @@ void EntryModel::clear() { setEntries({}); }
 void EntryModel::upsert(const Entry &entry) {
     if (const int row = indexOf(entry.id); row >= 0) {
         m_entries[row] = entry;
-        emit dataChanged(index(row), index(row), {TitleRole, ExcerptRole});
+        emit dataChanged(index(row), index(row), {TitleRole, ExcerptRole, BodyRole, SnippetRole});
         return;
     }
     const auto at = std::lower_bound(m_entries.begin(), m_entries.end(), entry, newerFirst);
@@ -140,4 +145,14 @@ QString EntryModel::excerpt(const QString &body) {
             break;
     }
     return words.join(' ').left(200);
+}
+
+QString EntryModel::plainText(const QString &body) {
+    QStringList lines;
+    for (const QString &line : body.split('\n')) {
+        const QString text = plain(line);
+        if (!text.isEmpty())
+            lines << text;
+    }
+    return lines.join(' ');
 }

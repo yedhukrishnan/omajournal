@@ -24,6 +24,7 @@ FocusScope {
             calendar.forceActiveFocus()
     }
     function focusList() { timeline.focusList() }
+    function focusSearch() { timeline.focusSearch() }
     function focusEditor() { editor.focusEditor() }
 
     SplitView {

@@ -59,6 +59,11 @@ ApplicationWindow {
         }
     }
     Shortcut {
+        sequences: [StandardKey.Find]
+        enabled: win.journalOpen
+        onActivated: content.item.focusSearch()
+    }
+    Shortcut {
         sequences: [StandardKey.Save]
         enabled: win.journalOpen
         onActivated: backend.save()

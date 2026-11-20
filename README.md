@@ -5,6 +5,13 @@
 An encrypted journal for [Omarchy](https://omarchy.org). Write entries in Markdown, find them by day on
 a calendar or in a timeline, and keep them unreadable to anyone without your passphrase.
 
+- **Calendar:** a month at a time, with a dot on every day that has entries. Pick a day to read it.
+- **Live formatting:** Markdown is styled as you type (headings, **bold**, *italic*, `code`, lists,
+  quotes, links), with its marks dimmed. Ctrl+B, Ctrl+I and Ctrl+E toggle them. The file stays plain
+  Markdown.
+- **Search:** Ctrl+F narrows the timeline to entries holding every word you type, whatever their case or
+  accents, and highlights the matches.
+
 It follows the Omarchy theme, light or dark, Hyprland's window rounding, and the language picked under
 Setup > Language, all live.
 
@@ -38,6 +45,8 @@ so any tool can copy it without seeing what you wrote:
 |---|---|
 | Ctrl+N | New entry |
 | Ctrl+S | Save now (entries also save on their own as you write) |
+| Ctrl+F | Search entries (Down or Enter goes to the results, Escape closes) |
+| Ctrl+B / Ctrl+I / Ctrl+E | Bold, italic, or code around the selection |
 | Ctrl+1 | Go to the calendar |
 | Ctrl+2 | Go to the timeline |
 | Ctrl+3 | Go to the editor |

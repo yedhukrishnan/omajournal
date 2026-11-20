@@ -11,7 +11,7 @@ class EntryModel : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
 public:
-    enum Role { IdRole = Qt::UserRole + 1, TitleRole, ExcerptRole, CreatedRole, DayRole };
+    enum Role { IdRole = Qt::UserRole + 1, TitleRole, ExcerptRole, CreatedRole, DayRole, BodyRole, SnippetRole };
 
     explicit EntryModel(QObject *parent = nullptr) : QAbstractListModel(parent) {}
 
@@ -37,6 +37,8 @@ public:
     static QString title(const QString &body);
     // A little of what follows the title, as one line of plain text.
     static QString excerpt(const QString &body);
+    // The whole body as one line of plain text, without Markdown's marks.
+    static QString plainText(const QString &body);
 
 signals:
     void countChanged();

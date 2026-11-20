@@ -15,6 +15,19 @@ FocusScope {
 
     function focusList() { list.forceActiveFocus() }
     function focusCalendar() { calendar.forceActiveFocus() }
+    function focusSearch() {
+        searchOpen = true
+        searchField.forceActiveFocus()
+        searchField.selectAll()
+    }
+    function closeSearch() {
+        searchField.clear()
+        backend.search.query = ""
+        searchOpen = false
+        focusList()
+    }
+
+    property bool searchOpen: false
 
     ColumnLayout {
         anchors.fill: parent
@@ -51,6 +64,57 @@ FocusScope {
             Layout.fillWidth: true
             Layout.preferredHeight: 1
             color: theme.colors.selection
+        }
+
+        // Ctrl+F: narrows the timeline as you type. Escape closes it.
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
+            Layout.topMargin: 10
+            visible: root.searchOpen
+            spacing: 4
+
+            TextField {
+                id: searchField
+                objectName: "searchField"
+                Layout.fillWidth: true
+                placeholderText: qsTr("Search entries")
+                Material.roundedScale: theme.radius
+                Material.containerStyle: Material.Outlined
+                // A short pause before searching, so each key isn't a search.
+                onTextEdited: searchDelay.restart()
+                onAccepted: {
+                    searchDelay.stop()
+                    backend.search.query = text
+                    if (list.count > 0) {
+                        if (list.currentIndex < 0)
+                            list.openRow(0)
+                        root.focusList()
+                    }
+                }
+                Keys.onEscapePressed: root.closeSearch()
+                Keys.onDownPressed: {
+                    searchDelay.stop()
+                    backend.search.query = text
+                    if (list.currentIndex < 0)
+                        list.openRow(0)
+                    root.focusList()
+                }
+                Timer {
+                    id: searchDelay
+                    interval: 150
+                    onTriggered: backend.search.query = searchField.text
+                }
+            }
+            Label {
+                objectName: "searchCount"
+                visible: backend.search.active
+                color: theme.colors.muted
+                font.pixelSize: 12
+                text: backend.search.count === 0 ? qsTr("No entries match.")
+                    : qsTr("%Ln entries match", "", backend.search.count)
+            }
         }
 
         CalendarPanel {
@@ -97,7 +161,8 @@ FocusScope {
             Layout.fillHeight: true
             clip: true
             focus: true
-            model: backend.entries
+            model: backend.search.active ? backend.search : backend.entries
+            onModelChanged: follow()
             currentIndex: -1
             // The selection only ever follows the open entry. Moving opens an
             // entry explicitly, since a ListView shifts its current index on
@@ -123,6 +188,13 @@ FocusScope {
             Keys.onDownPressed: openRow(currentIndex + 1)
             Keys.onReturnPressed: root.editRequested()
             Keys.onEnterPressed: root.editRequested()
+            // Escape leaves a search, back to the whole timeline.
+            Keys.onEscapePressed: (event) => {
+                if (root.searchOpen)
+                    root.closeSearch()
+                else
+                    event.accepted = false
+            }
 
             Connections {
                 target: backend
@@ -157,7 +229,7 @@ FocusScope {
                 required property int index
                 required property string entryId
                 required property string title
-                required property string excerpt
+                required property string snippet
                 required property var created
 
                 width: ListView.view.width
@@ -207,8 +279,10 @@ FocusScope {
                     }
                     Label {
                         Layout.fillWidth: true
-                        visible: row.excerpt !== ""
-                        text: row.excerpt
+                        visible: row.snippet !== ""
+                        // Escaped in C++; a search's matches come in bold.
+                        textFormat: Text.StyledText
+                        text: row.snippet
                         color: theme.colors.muted
                         wrapMode: Text.Wrap
                         maximumLineCount: 2
@@ -227,7 +301,7 @@ FocusScope {
         Label {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !backend.loading && list.count === 0
+            visible: !backend.loading && list.count === 0 && !backend.search.active
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignTop
             topPadding: 32

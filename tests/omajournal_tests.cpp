@@ -22,6 +22,7 @@
 #include "entrymodel.h"
 #include "entrystore.h"
 #include "markdownhighlighter.h"
+#include "searchmodel.h"
 #include "textfold.h"
 #include "vault.h"
 #include "theme.h"
@@ -478,6 +479,53 @@ private slots:
         QVERIFY(formatAt(document, 0, 2).background().style() == Qt::NoBrush);
     }
 
+    void searchNarrowsTheTimeline() {
+        EntryModel entries;
+        const QDateTime now = EntryStore::now();
+        entries.setEntries({{"a", now, QString::fromUtf8("# Café day\nCoffee with Ana at the café"), {}},
+                            {"b", now.addDays(-1), "Rain\nA long walk in the rain", {}},
+                            {"c", now.addDays(-2), "<script>\nCafe <b>not</b> html", {}}});
+        SearchModel search;
+        search.setSourceModel(&entries);
+        QCOMPARE(search.count(), 3);
+        QVERIFY(!search.active());
+
+        // Case and accents don't matter; every word must be there.
+        search.setQuery("CAFE");
+        QVERIFY(search.active());
+        QCOMPARE(search.count(), 2);
+        QCOMPARE(search.idAt(0), QString("a"));
+        QCOMPARE(search.idAt(1), QString("c"));
+        QCOMPARE(search.indexOf("c"), 1);
+        QCOMPARE(search.indexOf("b"), -1);
+        search.setQuery("cafe ana");
+        QCOMPARE(search.count(), 1);
+
+        // Snippets mark the matches, and the entry's own text stays text.
+        search.setQuery("cafe");
+        const QString snippet = search.index(1, 0).data(EntryModel::SnippetRole).toString();
+        QVERIFY2(snippet.startsWith("<b>Cafe</b> &lt;b&gt;not"), qPrintable(snippet));
+        // Not the title again, which is shown above the snippet.
+        QCOMPARE(search.index(0, 0).data(EntryModel::SnippetRole).toString(),
+                 QString::fromUtf8("Coffee with Ana at the <b>café</b>"));
+        // Unless only the title matched.
+        search.setQuery("day");
+        QCOMPARE(search.index(0, 0).data(EntryModel::SnippetRole).toString(),
+                 QString::fromUtf8("Café <b>day</b> Coffee with Ana at the café"));
+        search.setQuery("cafe");
+
+        // An edit that matches joins the results, and one that doesn't leaves.
+        entries.upsert({"b", now.addDays(-1), "Rain\nA long walk to the cafe", {}});
+        QCOMPARE(search.count(), 3);
+        entries.upsert({"a", now, "Tea instead", {}});
+        QCOMPARE(search.count(), 2);
+
+        search.setQuery("   ");
+        QVERIFY(!search.active());
+        QCOMPARE(search.count(), 3);
+        QCOMPARE(search.index(0, 0).data(EntryModel::SnippetRole).toString(), QString());
+    }
+
     // --- The backend ----------------------------------------------------------
 
     void backendSavesEncryptedAndForgetsOnLock() {
@@ -912,6 +960,22 @@ private slots:
         typeText(window, "x");
         QCOMPARE(backend.currentText(), QString("word`x`"));
         QTRY_COMPARE(backend.saveState(), Backend::Saved);
+
+        // Ctrl+F narrows the timeline; Escape brings it all back.
+        QTest::keyClick(window, Qt::Key_F, Qt::ControlModifier);
+        QTRY_VERIFY(item("searchField")->hasActiveFocus());
+        typeText(window, "MORNING");
+        QTRY_COMPARE(backend.search()->count(), 1);
+        QVERIFY(backend.search()->active());
+        QTRY_VERIFY(item("searchCount")->isVisible());
+        QTest::keyClick(window, Qt::Key_Down);
+        QTRY_VERIFY(item("timeline")->hasActiveFocus());
+        QCOMPARE(backend.currentText(), QString::fromUtf8("Morning\u00a0pages!"));
+        QCOMPARE(item("timeline")->property("currentIndex").toInt(), 0);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!backend.search()->active());
+        QTRY_VERIFY(!item("searchField")->isVisible());
+        QCOMPARE(item("timeline")->property("count").toInt(), 2);
 
         // The calendar takes the keyboard, and pages through months.
         QTest::keyClick(window, Qt::Key_1, Qt::ControlModifier);

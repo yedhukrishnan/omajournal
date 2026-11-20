@@ -9,6 +9,7 @@
 #include "vault.h"
 
 Backend::Backend(Vault *vault, QObject *parent) : QObject(parent), m_vault(vault) {
+    m_search.setSourceModel(&m_entries);
     m_autosave.setSingleShot(true);
     m_autosave.setInterval(800);
     connect(&m_autosave, &QTimer::timeout, this, &Backend::save);
@@ -94,6 +95,7 @@ bool Backend::openEntry(const QString &id) {
 void Backend::registerQmlTypes() {
     qmlRegisterUncreatableType<Backend>("Omajournal", 1, 0, "Backend", "The backend comes from C++.");
     qmlRegisterType<MarkdownHighlighter>("Omajournal", 1, 0, "MarkdownHighlighter");
+    qmlRegisterUncreatableType<SearchModel>("Omajournal", 1, 0, "SearchModel", "The search comes from the backend.");
 }
 
 bool Backend::openDay(const QString &day) {
@@ -157,6 +159,8 @@ bool Backend::lock(bool discardUnsaved) {
     m_autosave.stop();
     // A load still running is dropped when it finishes.
     ++m_loadGeneration;
+    // What was searched for says something about the journal too.
+    m_search.setQuery({});
     m_entries.clear();
     m_current = {};
     m_savedBody.clear();

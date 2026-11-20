@@ -7,6 +7,7 @@
 
 #include "entrymodel.h"
 #include "entrystore.h"
+#include "searchmodel.h"
 
 class QQuickTextDocument;
 class Vault;
@@ -16,6 +17,8 @@ class Vault;
 class Backend : public QObject {
     Q_OBJECT
     Q_PROPERTY(EntryModel *entries READ entries CONSTANT)
+    // The timeline narrowed by a search.
+    Q_PROPERTY(SearchModel *search READ search CONSTANT)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
     Q_PROPERTY(QStringList loadErrors READ loadErrors NOTIFY loadingChanged)
     Q_PROPERTY(QString currentId READ currentId NOTIFY currentChanged)
@@ -38,6 +41,7 @@ public:
     ~Backend() override;
 
     EntryModel *entries() { return &m_entries; }
+    SearchModel *search() { return &m_search; }
     bool loading() const { return m_load.isRunning(); }
     QStringList loadErrors() const { return m_loadErrors; }
     QString currentId() const { return m_current.id; }
@@ -84,6 +88,7 @@ private:
 
     Vault *m_vault;
     EntryModel m_entries;
+    SearchModel m_search;
     QFutureWatcher<EntryStore::LoadResult> m_load;
     int m_loadGeneration = 0;
     QStringList m_loadErrors;

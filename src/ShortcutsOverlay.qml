@@ -35,6 +35,8 @@ Popup {
             model: [
                 { keys: "Ctrl+N", action: qsTr("New entry") },
                 { keys: "Ctrl+S", action: qsTr("Save now") },
+                { keys: "Ctrl+F", action: qsTr("Search entries") },
+                { keys: "Esc", action: qsTr("Close the search") },
                 { keys: "Ctrl+1", action: qsTr("Go to the calendar") },
                 { keys: "Ctrl+2", action: qsTr("Go to the timeline") },
                 { keys: "Ctrl+3", action: qsTr("Go to the editor") },

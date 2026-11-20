@@ -3,11 +3,16 @@
     "one": "%Ln entry couldn't be read:",
     "other": "%Ln entries couldn't be read:"
   },
+  "%Ln entries match": {
+    "one": "%Ln entry matches",
+    "other": "%Ln entries match"
+  },
   "At least 8 characters": "At least 8 characters",
   "Back": "Back",
   "Bold": "Bold",
   "Choose a folder for the journal.": "Choose a folder for the journal.",
   "Close and lock": "Close and lock",
+  "Close the search": "Close the search",
   "Code": "Code",
   "Continue": "Continue",
   "Copy": "Copy",
@@ -40,6 +45,7 @@
   "New passphrase": "New passphrase",
   "New passphrase again": "New passphrase again",
   "Next month": "Next month",
+  "No entries match.": "No entries match.",
   "No entries yet.": "No entries yet.",
   "Not saved: %1": "Not saved: %1",
   "Open my journal": "Open my journal",
@@ -57,6 +63,7 @@
   "Save your recovery key": "Save your recovery key",
   "Saved, encrypted": "Saved, encrypted",
   "Saving…": "Saving…",
+  "Search entries": "Search entries",
   "Show or hide the shortcuts": "Show or hide the shortcuts",
   "Strong": "Strong",
   "That isn't a recovery key. It has 13 groups of four letters and digits.": "That isn't a recovery key. It has 13 groups of four letters and digits.",
