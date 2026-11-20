@@ -242,6 +242,49 @@ void Vault::recover(const QString &recoveryKey, const QString &newPassphrase) {
     }, false);
 }
 
+void Vault::changePassphrase(const QString &current, const QString &newPassphrase) {
+    if (busy() || !locked())
+        return;
+    QFile file(keyFile());
+    if (!file.open(QIODevice::ReadOnly)) {
+        emit failed(tr("Couldn't read the key file: %1").arg(file.errorString()));
+        return;
+    }
+    QJsonObject keys = QJsonDocument::fromJson(file.readAll()).object();
+    QByteArray old = passphraseBytes(current);
+    QByteArray secret = passphraseBytes(newPassphrase);
+    const Crypto::KdfLimits limits = m_limits;
+    run([keys, old, secret, limits]() mutable {
+        Result result;
+        const QJsonObject kdf = keys["kdf"].toObject();
+        const Crypto::KdfLimits oldLimits{static_cast<unsigned long long>(kdf["opslimit"].toDouble()),
+                                          static_cast<std::size_t>(kdf["memlimit"].toDouble())};
+        auto oldKey = Crypto::keyFromPassphrase(old, unbase64(kdf["salt"]), oldLimits);
+        Crypto::wipe(old);
+        std::optional<Crypto::SecretKey> masterKey;
+        if (oldKey)
+            masterKey = Crypto::unwrap(*oldKey, wrappedFrom(keys["passphrase"]), passphraseSlot);
+        if (!masterKey) {
+            Crypto::wipe(secret);
+            result.error = tr("That passphrase doesn't open this journal.");
+            return result;
+        }
+        // As with recovery, only the passphrase's copy of the master key changes.
+        const QByteArray salt = Crypto::randomBytes(crypto_pwhash_SALTBYTES);
+        auto passphraseKey = Crypto::keyFromPassphrase(secret, salt, limits);
+        Crypto::wipe(secret);
+        if (!passphraseKey) {
+            result.error = tr("Couldn't make the keys: the system is out of memory.");
+            return result;
+        }
+        keys["kdf"] = kdfJson(salt, limits);
+        keys["passphrase"] = wrappedJson(Crypto::wrap(*passphraseKey, *masterKey, passphraseSlot));
+        result.keyFile = QJsonDocument(keys).toJson();
+        result.key = std::make_shared<Crypto::SecretKey>(std::move(*masterKey));
+        return result;
+    }, false);
+}
+
 void Vault::lock() {
     if (locked())
         return;

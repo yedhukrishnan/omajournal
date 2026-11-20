@@ -327,6 +327,17 @@ private slots:
         vault.unlock("new passphrase");
         QTRY_COMPARE(unlocked.size(), 3);
 
+        // Changing the passphrase needs the current one, and keeps the content.
+        vault.lock();
+        vault.changePassphrase("wrong", "third passphrase");
+        QTRY_COMPARE(failed.size(), 4);
+        vault.changePassphrase("new passphrase", "third passphrase");
+        QTRY_COMPARE(unlocked.size(), 4);
+        QCOMPARE(*Crypto::decryptFile(*vault.key(), sealed), QByteArray("kept"));
+        vault.lock();
+        vault.unlock("third passphrase");
+        QTRY_COMPARE(unlocked.size(), 5);
+
         // The folder is remembered for the next start.
         Vault again(dir.filePath("settings.json"), dir.filePath("elsewhere"), Crypto::KdfLimits::minimum());
         QCOMPARE(again.path(), journal);

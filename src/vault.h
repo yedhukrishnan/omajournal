@@ -43,6 +43,9 @@ public:
     Q_INVOKABLE void unlock(const QString &passphrase);
     // Unlocks with the recovery key and sets a new passphrase.
     Q_INVOKABLE void recover(const QString &recoveryKey, const QString &newPassphrase);
+    // Checks the current passphrase and sets a new one; answers with
+    // unlocked() or failed(), and leaves the journal unlocked.
+    Q_INVOKABLE void changePassphrase(const QString &current, const QString &newPassphrase);
     Q_INVOKABLE void lock();
 
     // 0 too short, 1 weak, 2 fair, 3 strong. Only a guide.
