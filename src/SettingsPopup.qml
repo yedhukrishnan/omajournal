@@ -87,10 +87,28 @@ Popup {
         LayoutMirroring.enabled: popup.rightToLeft
         LayoutMirroring.childrenInherit: true
 
-        Label {
-            text: qsTr("Settings")
-            font.bold: true
-            font.pixelSize: 16
+        RowLayout {
+            Layout.fillWidth: true
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Settings")
+                font.bold: true
+                font.pixelSize: 16
+            }
+            ToolButton {
+                objectName: "settingsClose"
+                text: "✕"
+                font.pixelSize: 18
+                focusPolicy: Qt.NoFocus
+                Material.roundedScale: theme.radius
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
+                Accessible.name: qsTr("Close")
+                onClicked: popup.close()
+                ToolTip.visible: hovered
+                ToolTip.delay: 600
+                ToolTip.text: qsTr("Close (Esc)")
+            }
         }
         Label {
             Layout.topMargin: 4

@@ -1560,6 +1560,11 @@ private slots:
         QCOMPARE(preferences.fontFamily(), QString());
         QTest::keyClick(window, Qt::Key_Comma, Qt::ControlModifier);
         QTRY_VERIFY(!settings->property("visible").toBool());
+        // And its close button.
+        QTest::keyClick(window, Qt::Key_Comma, Qt::ControlModifier);
+        QTRY_VERIFY(settings->property("opened").toBool());
+        click(descendant(settings->property("contentItem").value<QQuickItem *>(), "settingsClose"));
+        QTRY_VERIFY(!settings->property("visible").toBool());
 
         // The calendar takes the keyboard, and pages through months.
         QTest::keyClick(window, Qt::Key_1, Qt::ControlModifier);
