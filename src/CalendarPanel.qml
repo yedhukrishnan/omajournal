@@ -114,6 +114,9 @@ FocusScope {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 1
+            // Cancel the column's spacing so the line sits at 56px, level
+            // with the lines under the other panes' headers.
+            Layout.topMargin: -column.spacing
             Layout.bottomMargin: 8
             visible: cal.paneHeader
             color: theme.colors.selection
