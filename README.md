@@ -13,9 +13,9 @@ a calendar or in a timeline, and keep them unreadable to anyone without your pas
   the timeline to one.
 - **Where and when:** Ctrl+G records where you are, and Ctrl+D (or a click on the date) moves an entry to
   another day or time.
-- **Writing font:** Ctrl+Shift+F (or **Aa** above the entry) picks the font entries are written in: the
-  desktop's default, serif, monospace, or any installed font, with a size. Only the editor changes; the
-  entries stay plain Markdown.
+- **Writing font:** in Settings (Ctrl+,), pick the font entries are written in: the desktop's default,
+  serif, monospace, or any installed font, with a size. Moving through the list previews each font in
+  the editor. Only the editor changes; the entries stay plain Markdown.
 - **Search:** Ctrl+F narrows the timeline to entries holding every word you type, whatever their case or
   accents, and highlights the matches.
 
@@ -65,7 +65,7 @@ so any tool can copy it without seeing what you wrote:
 | Ctrl+T | Add a tag (Up/Down picks a suggestion) |
 | Ctrl+G | Add where you are |
 | Ctrl+D | Change the date and time |
-| Ctrl+Shift+F | Change the writing font |
+| Ctrl+, | Settings (the writing font) |
 | Ctrl++ / Ctrl+- / Ctrl+0 | Larger, smaller, or usual-size text |
 | Ctrl+1 | Go to the calendar |
 | Ctrl+2 | Go to the timeline |

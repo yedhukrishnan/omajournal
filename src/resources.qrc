@@ -11,7 +11,7 @@
         <file alias="TagChip.qml">TagChip.qml</file>
         <file alias="TagPanel.qml">TagPanel.qml</file>
         <file alias="DateTimePopup.qml">DateTimePopup.qml</file>
-        <file alias="FontPopup.qml">FontPopup.qml</file>
+        <file alias="SettingsPopup.qml">SettingsPopup.qml</file>
         <file alias="ShortcutsOverlay.qml">ShortcutsOverlay.qml</file>
         <file alias="AccentButton.qml">AccentButton.qml</file>
         <file alias="StrengthMeter.qml">StrengthMeter.qml</file>

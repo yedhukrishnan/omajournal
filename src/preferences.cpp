@@ -1,6 +1,8 @@
 #include "preferences.h"
 
 #include <QFontDatabase>
+#include <QFontInfo>
+#include <QGuiApplication>
 #include <algorithm>
 
 #include "settings.h"
@@ -38,6 +40,29 @@ void Preferences::setFontSize(int size) {
     m_fontSize = size;
     emit fontChanged();
     save();
+}
+
+void Preferences::previewFont(const QString &family) {
+    const QString trimmed = family.trimmed();
+    if (m_previewing && trimmed == m_previewFamily)
+        return;
+    m_previewFamily = trimmed;
+    m_previewing = true;
+    emit fontChanged();
+}
+
+void Preferences::endPreview() {
+    if (!m_previewing)
+        return;
+    m_previewing = false;
+    m_previewFamily.clear();
+    emit fontChanged();
+}
+
+QString Preferences::resolvedFamily(const QString &family) {
+    if (family.isEmpty())
+        return QGuiApplication::font().family();
+    return QFontInfo(QFont(family)).family();
 }
 
 bool Preferences::fontInstalled() const {

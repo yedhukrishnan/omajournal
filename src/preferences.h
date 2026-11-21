@@ -11,6 +11,9 @@ class Preferences : public QObject {
     // A family, a generic name ("serif", "monospace"), or empty for the
     // desktop's interface font.
     Q_PROPERTY(QString fontFamily READ fontFamily WRITE setFontFamily NOTIFY fontChanged)
+    // What the editor shows: a font being tried in the picker, which is never
+    // saved, or else fontFamily.
+    Q_PROPERTY(QString editorFamily READ editorFamily NOTIFY fontChanged)
     // Pixels, for the body text; headings scale from it.
     Q_PROPERTY(int fontSize READ fontSize WRITE setFontSize NOTIFY fontChanged)
     // False when the chosen family isn't installed (any more), so Qt draws
@@ -32,6 +35,7 @@ public:
     void setFontFamily(const QString &family);
     int fontSize() const { return m_fontSize; }
     void setFontSize(int size);
+    QString editorFamily() const { return m_previewing ? m_previewFamily : m_fontFamily; }
     bool fontInstalled() const;
     QStringList fontFamilies() const;
     QString saveError() const { return m_saveError; }
@@ -39,6 +43,12 @@ public:
     Q_INVOKABLE void enlargeFont() { setFontSize(m_fontSize + 1); }
     Q_INVOKABLE void shrinkFont() { setFontSize(m_fontSize - 1); }
     Q_INVOKABLE void resetFontSize() { setFontSize(defaultSize); }
+    // Shows a font in the editor without choosing it, until endPreview().
+    Q_INVOKABLE void previewFont(const QString &family);
+    Q_INVOKABLE void endPreview();
+    // The installed family a name stands for: the desktop's interface font
+    // for an empty one, fontconfig's pick for "serif" and "monospace".
+    Q_INVOKABLE static QString resolvedFamily(const QString &family);
 
 signals:
     void fontChanged();
@@ -50,6 +60,8 @@ private:
     QString m_settingsFile;
     QString m_fontFamily;
     int m_fontSize = defaultSize;
+    QString m_previewFamily;
+    bool m_previewing = false;
     QString m_saveError;
     mutable QStringList m_families;
 };

@@ -1080,6 +1080,14 @@ private slots:
             QCOMPARE(preferences.fontSize(), Preferences::defaultSize);
             QVERIFY(preferences.fontInstalled());
             QSignalSpy changed(&preferences, &Preferences::fontChanged);
+            // A font being tried shows, but isn't kept.
+            preferences.previewFont("monospace");
+            QCOMPARE(preferences.editorFamily(), QString("monospace"));
+            QCOMPARE(preferences.fontFamily(), QString());
+            preferences.endPreview();
+            QCOMPARE(preferences.editorFamily(), QString());
+            QCOMPARE(changed.size(), 2);
+            changed.clear();
             preferences.setFontFamily("serif");
             preferences.setFontSize(99);
             QCOMPARE(preferences.fontSize(), Preferences::maximumSize);
@@ -1515,29 +1523,43 @@ private slots:
         QTRY_VERIFY(!suggestions->property("visible").toBool());
         QTRY_COMPARE(backend.saveState(), Backend::Saved);
 
-        // The writing font changes the editor at once, and typing goes back
-        // to the entry when the picker closes.
+        // Settings (Ctrl+,): moving through the fonts previews each in the
+        // editor, Escape goes back, and Enter keeps one. Typing goes back to
+        // the entry when they close.
         auto *editor = item("editor");
-        QTest::keyClick(window, Qt::Key_F, Qt::ControlModifier | Qt::ShiftModifier);
-        auto *fontPopup = window->findChild<QObject *>("fontPopup");
-        QTRY_VERIFY(fontPopup->property("opened").toBool());
+        auto editorFamily = [&] { return editor->property("font").value<QFont>().family(); };
+        const QString defaultFamily = editorFamily();
+        QTest::keyClick(window, Qt::Key_Comma, Qt::ControlModifier);
+        auto *settings = window->findChild<QObject *>("settingsPopup");
+        QTRY_VERIFY(settings->property("opened").toBool());
         QTRY_VERIFY(item("fontFilter")->hasActiveFocus());
-        click(descendant(fontPopup->property("contentItem").value<QQuickItem *>(), "fontPreset-serif"));
-        QCOMPARE(preferences.fontFamily(), QString("serif"));
-        QCOMPARE(editor->property("font").value<QFont>().family(), QString("serif"));
+        QTest::keyClick(window, Qt::Key_Down); // Default, then Serif
+        QCOMPARE(editorFamily(), QString("serif"));
+        QCOMPARE(preferences.fontFamily(), QString());
         QTest::keyClick(window, Qt::Key_Escape);
-        QTRY_VERIFY(!fontPopup->property("visible").toBool());
+        QTRY_VERIFY(!settings->property("visible").toBool());
+        QCOMPARE(editorFamily(), defaultFamily);
         QTRY_VERIFY(editor->hasActiveFocus());
+
+        click(item("settingsButton"));
+        QTRY_VERIFY(settings->property("opened").toBool());
+        QTest::keyClick(window, Qt::Key_Down);
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(preferences.fontFamily(), QString("serif"));
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!settings->property("visible").toBool());
+        QCOMPARE(editorFamily(), QString("serif"));
         QTest::keyClick(window, Qt::Key_Equal, Qt::ControlModifier);
         QCOMPARE(editor->property("font").value<QFont>().pixelSize(), Preferences::defaultSize + 1);
         QTest::keyClick(window, Qt::Key_0, Qt::ControlModifier);
         QCOMPARE(editor->property("font").value<QFont>().pixelSize(), Preferences::defaultSize);
-        click(item("fontButton"));
-        QTRY_VERIFY(fontPopup->property("opened").toBool());
-        click(descendant(fontPopup->property("contentItem").value<QQuickItem *>(), "fontPreset-default"));
+        QTest::keyClick(window, Qt::Key_Comma, Qt::ControlModifier);
+        QTRY_VERIFY(settings->property("opened").toBool());
+        QTest::keyClick(window, Qt::Key_Up);
+        QTest::keyClick(window, Qt::Key_Return);
         QCOMPARE(preferences.fontFamily(), QString());
-        QTest::keyClick(window, Qt::Key_Escape);
-        QTRY_VERIFY(!fontPopup->property("visible").toBool());
+        QTest::keyClick(window, Qt::Key_Comma, Qt::ControlModifier);
+        QTRY_VERIFY(!settings->property("visible").toBool());
 
         // The calendar takes the keyboard, and pages through months.
         QTest::keyClick(window, Qt::Key_1, Qt::ControlModifier);

@@ -98,11 +98,12 @@ ApplicationWindow {
         enabled: win.journalOpen
         onActivated: content.item.focusList()
     }
-    // The writing font: a picker, and the size from the keyboard.
+    // Settings, where the desktop's apps keep them; the writing font's size
+    // also follows the usual zoom keys.
     Shortcut {
-        sequence: "Ctrl+Shift+F"
-        enabled: win.journalOpen
-        onActivated: fontPopup.opened ? fontPopup.close() : fontPopup.open()
+        sequence: "Ctrl+,"
+        enabled: win.journalOpen && !settings.opened
+        onActivated: settings.open()
     }
     Shortcut {
         sequences: [StandardKey.ZoomIn, "Ctrl+="]
@@ -148,7 +149,7 @@ ApplicationWindow {
             function onCreating() { win.settingUp = true }
             function onFinished() { win.settingUp = false }
             function onLockRequested() { win.lockJournal() }
-            function onFontRequested() { fontPopup.open() }
+            function onSettingsRequested() { settings.open() }
             function onNewEntryRequested() {
                 backend.newEntry()
                 content.item.focusEditor()
@@ -212,10 +213,10 @@ ApplicationWindow {
         }
     }
 
-    FontPopup {
-        id: fontPopup
+    SettingsPopup {
+        id: settings
         rightToLeft: win.rightToLeft
-        // The font stays chosen; typing goes back to the entry.
+        // Typing goes back to the entry.
         onClosed: if (win.journalOpen) content.item.focusEditor()
     }
 

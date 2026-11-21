@@ -50,7 +50,7 @@ Popup {
                 { keys: "Ctrl+B", action: qsTr("Bold") },
                 { keys: "Ctrl+I", action: qsTr("Italic") },
                 { keys: "Ctrl+E", action: qsTr("Code") },
-                { keys: "Ctrl+Shift+F", action: qsTr("Change the writing font") },
+                { keys: "Ctrl+,", action: qsTr("Settings: the writing font") },
                 { keys: "Ctrl++ Ctrl+−", action: qsTr("Larger or smaller text") },
                 { keys: "Ctrl+0", action: qsTr("Text back to its usual size") },
                 { keys: "Ctrl+Z", action: qsTr("Undo") },
