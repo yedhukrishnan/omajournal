@@ -75,12 +75,42 @@ so any tool can copy it without seeing what you wrote:
 | F1 | Show or hide the shortcuts |
 | Ctrl+W / Ctrl+Q | Close or quit, locking first |
 
+## Command line
+
+`omajournal open` starts the window. Everything else is a command that needs no display, for scripts
+and backups:
+
+| Command | Does |
+|---|---|
+| `omajournal new [--text TEXT] [--tag T]... [--date YYYY-MM-DD] [--time HH:MM]` | Write an entry, from `--text` or stdin, and print its id |
+| `omajournal list [--month YYYY-MM] [--tag T]` | List entries, newest first |
+| `omajournal search WORDS... [--tag T]` | Find entries holding every word, with a snippet |
+| `omajournal show ID` | Print an entry; the start of its id is enough |
+| `omajournal export --decrypt DIR` | Write every entry as a Markdown file into a new or empty folder |
+| `omajournal import DIR` | Add every `.md` file in a folder as a new entry |
+| `omajournal passwd` | Change the passphrase |
+
+Each command asks for the passphrase on the terminal, with echo off. A script can give it on a file
+descriptor instead with `--passphrase-fd N` (for `passwd`, the current passphrase on the first line and
+the new one on the second); it is never read from an argument or the environment, where other programs
+could see it. `--journal DIR` works on another journal, and `--json` prints a JSON object. Errors go
+to stderr, and a failed command exits with 1.
+
+```sh
+omajournal new --tag work --text "Shipped the release."
+pass show journal | omajournal list --month 2026-11 --json --passphrase-fd 0
+```
+
+**`export --decrypt` writes your entries unencrypted.** Anyone who can read that folder can read them,
+so delete it when you're done. Exported files keep their front matter, so `import` brings back their
+dates and tags; a file without front matter is dated by when it last changed.
+
 ## Building
 
 ```sh
 bin/build                                 # into build/
 bin/test                                  # build, then run the tests offscreen
-build/omajournal
+build/omajournal open
 cmake --install build --prefix ~/.local   # appear in the app launcher
 ```
 
