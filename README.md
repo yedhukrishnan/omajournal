@@ -56,6 +56,40 @@ so any tool can copy it without seeing what you wrote:
 - **Backups:** [restic](https://restic.net) or borg keep snapshots, so a deleted or damaged entry can
   be brought back. Syncing alone copies a mistake everywhere.
 
+### Backing up with git
+
+Git works as a backup too: every commit is a snapshot you can go back to. Make the journal folder a
+repository once, and push it to a **private** repository on a host you trust:
+
+```sh
+cd ~/Journal
+git init
+git add .
+git commit -m "Back up the journal"
+git remote add origin git@github.com:you/journal.git
+git push -u origin HEAD
+```
+
+After that, back up whenever you like:
+
+```sh
+cd ~/Journal && git add . && git commit -m "Back up the journal" && git push
+```
+
+Entries are saved in one step, so a commit never catches one half written, even with the window open.
+Always keep `journal.key` in the repository along with the `e` folder: without it, nothing can read the
+entries, not even your passphrase.
+
+**Never push the journal to a public repository.** The entries stay encrypted, but anyone could
+download them and try passphrase after passphrase on their own machine, for as long as they like, and
+whatever was public once can't be taken back. Even a private repository is worth keeping in mind:
+
+- **History keeps everything.** Deleted entries stay in old commits. So do old copies of `journal.key`,
+  and each of those still opens the journal with the passphrase it had then. Changing a passphrase that
+  leaked doesn't protect a repository someone has already copied.
+- **Commits show when you wrote**, the same as file times do.
+- **A strong passphrase is what keeps the backup safe**, wherever it ends up.
+
 ## Keyboard
 
 | Keys | Action |
