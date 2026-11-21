@@ -223,5 +223,36 @@ Popup {
             color: theme.colors.red
             text: preferences.saveError
         }
+
+        // Where the journal lives, so it can be found for a backup or sync.
+        // It's chosen at setup and doesn't move from here.
+        Label {
+            Layout.topMargin: 10
+            text: qsTr("Journal folder")
+            font.bold: true
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            // Selectable, so the path can be copied.
+            TextEdit {
+                objectName: "journalPath"
+                Layout.fillWidth: true
+                readOnly: true
+                selectByMouse: true
+                activeFocusOnPress: false
+                wrapMode: TextEdit.WrapAnywhere
+                text: vault.displayPath
+                color: theme.secondaryText
+                selectionColor: theme.colors.selection
+                selectedTextColor: theme.foreground
+                font: Qt.application.font
+            }
+            SmallAction {
+                objectName: "openJournalFolder"
+                text: qsTr("Open folder")
+                onClicked: Qt.openUrlExternally("file://" + encodeURI(vault.path))
+            }
+        }
     }
 }

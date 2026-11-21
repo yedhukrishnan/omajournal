@@ -115,6 +115,15 @@ void Vault::setPath(const QString &path) {
     emit stateChanged();
 }
 
+QString Vault::displayPath() const {
+    const QString home = QDir::homePath();
+    if (m_path == home)
+        return "~";
+    if (m_path.startsWith(home + "/"))
+        return "~" + m_path.mid(home.size());
+    return m_path;
+}
+
 QString Vault::pathProblem() const {
     if (m_path.isEmpty() || m_path == ".")
         return tr("Choose a folder for the journal.");

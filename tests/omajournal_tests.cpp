@@ -485,6 +485,19 @@ private slots:
         QCOMPARE(vault.path(), dir.filePath("fresh"));
     }
 
+    void vaultShowsTheHomeFolderAsATilde() {
+        QTemporaryDir dir;
+        Vault vault(dir.filePath("settings.json"), QDir::homePath() + "/Journal", Crypto::KdfLimits::minimum());
+        QCOMPARE(vault.displayPath(), QString("~/Journal"));
+        vault.setPath(QDir::homePath());
+        QCOMPARE(vault.displayPath(), QString("~"));
+        // A folder that only starts like the home folder keeps its name.
+        vault.setPath(QDir::homePath() + "x/Journal");
+        QCOMPARE(vault.displayPath(), QDir::homePath() + "x/Journal");
+        vault.setPath("/srv/journal");
+        QCOMPARE(vault.displayPath(), QString("/srv/journal"));
+    }
+
     void passphraseStrengthIsAGuide() {
         QCOMPARE(Vault::passphraseStrength("short"), 0);
         QCOMPARE(Vault::passphraseStrength("eightchr"), 1);
@@ -1598,9 +1611,11 @@ private slots:
         QCOMPARE(preferences.fontFamily(), QString());
         QTest::keyClick(window, Qt::Key_Comma, Qt::ControlModifier);
         QTRY_VERIFY(!settings->property("visible").toBool());
-        // And its close button.
+        // It shows where the journal is, and its close button closes it.
         QTest::keyClick(window, Qt::Key_Comma, Qt::ControlModifier);
         QTRY_VERIFY(settings->property("opened").toBool());
+        auto *settingsContent = settings->property("contentItem").value<QQuickItem *>();
+        QCOMPARE(descendant(settingsContent, "journalPath")->property("text").toString(), vault.displayPath());
         click(descendant(settings->property("contentItem").value<QQuickItem *>(), "settingsClose"));
         QTRY_VERIFY(!settings->property("visible").toBool());
 

@@ -13,6 +13,7 @@
 class Vault : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString path READ path WRITE setPath NOTIFY pathChanged)
+    Q_PROPERTY(QString displayPath READ displayPath NOTIFY pathChanged)
     Q_PROPERTY(QString pathProblem READ pathProblem NOTIFY pathChanged)
     Q_PROPERTY(bool exists READ exists NOTIFY stateChanged)
     Q_PROPERTY(bool locked READ locked NOTIFY stateChanged)
@@ -26,6 +27,8 @@ public:
 
     QString path() const { return m_path; }
     void setPath(const QString &path);
+    // The path to show people: the home folder written as ~.
+    QString displayPath() const;
     // Why a new journal can't go in path, or empty when it can.
     QString pathProblem() const;
     bool exists() const;
