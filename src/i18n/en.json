@@ -8,6 +8,10 @@
     "one": "%Ln entry matches",
     "other": "%Ln entries match"
   },
+  "%Ln words": {
+    "one": "%Ln word",
+    "other": "%Ln words"
+  },
   "+ Location": "+ Location",
   "+ Tag": "+ Tag",
   "A tag is letters, digits, - and _, with no spaces.": "A tag is letters, digits, - and _, with no spaces.",

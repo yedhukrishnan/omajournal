@@ -446,6 +446,15 @@ FocusScope {
                     : backend.saveState === Backend.Unsaved ? qsTr("Saving…")
                     : qsTr("Saved, encrypted")
             }
+            Label {
+                objectName: "wordCount"
+                font.pixelSize: 12
+                color: theme.secondaryText
+                text: {
+                    const trimmed = area.text.trim()
+                    return qsTr("%Ln words", "", trimmed === "" ? 0 : trimmed.split(/\s+/).length)
+                }
+            }
         }
     }
 
