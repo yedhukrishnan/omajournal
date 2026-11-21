@@ -44,6 +44,7 @@ Popup {
                 { keys: "Ctrl+2", action: qsTr("Go to the timeline") },
                 { keys: "Ctrl+3", action: qsTr("Go to the editor") },
                 { keys: "← → ↑ ↓", action: qsTr("Move through the calendar's days") },
+                { keys: "Ctrl+Enter", action: qsTr("New entry on the calendar's day") },
                 { keys: "PgUp PgDn", action: qsTr("Previous or next month") },
                 { keys: "↑ ↓", action: qsTr("Move through the timeline") },
                 { keys: "Enter", action: qsTr("Edit the selected entry") },

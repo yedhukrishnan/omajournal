@@ -797,6 +797,29 @@ private slots:
         QVERIFY(backend.lock());
     }
 
+    void newEntryOnAnotherDay() {
+        QTemporaryDir dir;
+        Vault vault(dir.filePath("settings.json"), dir.filePath("journal"), Crypto::KdfLimits::minimum());
+        Backend backend(&vault);
+        QSignalSpy created(&vault, &Vault::created);
+        vault.create("correct horse battery");
+        QTRY_COMPARE(created.size(), 1);
+        const QDate past = EntryStore::now().date().addDays(-40);
+        const QDate future = EntryStore::now().date().addDays(40);
+
+        QVERIFY(!backend.newEntryOn("not a day"));
+        QVERIFY(backend.newEntryOn(past.toString(Qt::ISODate)));
+        QCOMPARE(backend.currentDay(), past.toString(Qt::ISODate));
+        backend.setText("looking back");
+        QTRY_COMPARE(backend.saveState(), Backend::Saved);
+        QVERIFY(backend.newEntryOn(future.toString(Qt::ISODate)));
+        QCOMPARE(backend.currentDay(), future.toString(Qt::ISODate));
+        backend.setText("looking ahead");
+        QCOMPARE(backend.entryDays().value(past.toString(Qt::ISODate)).toInt(), 1);
+        QCOMPARE(backend.entryDays().value(future.toString(Qt::ISODate)).toInt(), 1);
+        QVERIFY(backend.lock());
+    }
+
     void tagsLocationAndDateAreSavedWithTheEntry() {
         QTemporaryDir dir;
         Vault vault(dir.filePath("settings.json"), dir.filePath("journal"), Crypto::KdfLimits::minimum());

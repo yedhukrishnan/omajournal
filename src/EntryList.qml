@@ -8,6 +8,7 @@ FocusScope {
     id: root
 
     signal newEntryRequested()
+    signal newEntryOnRequested(string day)
     signal editRequested()
 
     // In a narrow window the calendar sits above the timeline.
@@ -139,6 +140,7 @@ FocusScope {
             Layout.rightMargin: 4
             visible: root.showCalendar
             Keys.onTabPressed: root.focusList()
+            onNewEntryOnRequested: (day) => root.newEntryOnRequested(day)
         }
 
         Rectangle {

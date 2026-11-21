@@ -12,6 +12,7 @@
     "one": "%Ln word",
     "other": "%Ln words"
   },
+  "+ Entry on %1": "+ Entry on %1",
   "+ Location": "+ Location",
   "+ Tag": "+ Tag",
   "A tag is letters, digits, - and _, with no spaces.": "A tag is letters, digits, - and _, with no spaces.",
@@ -69,6 +70,7 @@
   "Move through the timeline": "Move through the timeline",
   "N": "N",
   "New entry": "New entry",
+  "New entry on the calendar's day": "New entry on the calendar's day",
   "New passphrase": "New passphrase",
   "New passphrase again": "New passphrase again",
   "Next month": "Next month",

@@ -75,6 +75,9 @@ public:
 
     // Starts an entry dated now. It is saved once it has text.
     Q_INVOKABLE void newEntry();
+    // Starts an entry on another day (yyyy-MM-dd), at the time of day it is
+    // now. False for a day that isn't a date.
+    Q_INVOKABLE bool newEntryOn(const QString &day);
     // False when the open entry couldn't be saved, which keeps it open.
     Q_INVOKABLE bool openEntry(const QString &id);
     // Opens the newest entry of a day (yyyy-MM-dd); false if it has none.

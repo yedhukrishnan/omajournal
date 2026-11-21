@@ -14,6 +14,7 @@ FocusScope {
 
     signal lockRequested()
     signal newEntryRequested()
+    signal newEntryOnRequested(string day)
     signal settingsRequested()
 
     readonly property bool narrow: width < 900
@@ -62,6 +63,7 @@ FocusScope {
                     Layout.fillWidth: true
                     paneHeader: true
                     Keys.onTabPressed: view.focusList()
+                    onNewEntryOnRequested: (day) => view.newEntryOnRequested(day)
                 }
                 TagPanel {
                     Layout.fillWidth: true
@@ -77,6 +79,7 @@ FocusScope {
             SplitView.minimumWidth: 240
             showCalendar: view.narrow
             onNewEntryRequested: view.newEntryRequested()
+            onNewEntryOnRequested: (day) => view.newEntryOnRequested(day)
             onEditRequested: editor.focusEditor()
         }
 

@@ -107,6 +107,23 @@ void Backend::newEntry() {
     setCurrent(entry, true);
 }
 
+bool Backend::newEntryOn(const QString &day) {
+    const QDate date = QDate::fromString(day, Qt::ISODate);
+    if (!date.isValid())
+        return false;
+    m_switching = true;
+    const bool left = leaveCurrent();
+    m_switching = false;
+    if (!left)
+        return false;
+    QDateTime created = EntryStore::now();
+    created.setDate(date);
+    const Entry entry(EntryStore::newId(), created, {});
+    m_entries.upsert(entry);
+    setCurrent(entry, true);
+    return true;
+}
+
 bool Backend::openEntry(const QString &id) {
     if (id == m_current.id || m_switching)
         return true;

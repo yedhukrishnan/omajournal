@@ -154,6 +154,10 @@ ApplicationWindow {
                 backend.newEntry()
                 content.item.focusEditor()
             }
+            function onNewEntryOnRequested(day) {
+                if (backend.newEntryOn(day))
+                    content.item.focusEditor()
+            }
         }
     }
 

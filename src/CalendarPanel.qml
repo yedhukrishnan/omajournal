@@ -21,6 +21,9 @@ FocusScope {
     // headers and the line under them.
     property bool paneHeader: false
 
+    // Ctrl+Enter, or the action under the month: a new entry on the cursor day.
+    signal newEntryOnRequested(string day)
+
     implicitHeight: column.implicitHeight
 
     function iso(date) {
@@ -63,6 +66,9 @@ FocusScope {
             moveMonths(1)
         } else if (event.key === Qt.Key_Home) {
             cursor = new Date()
+        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                   && (event.modifiers & Qt.ControlModifier)) {
+            newEntryOnRequested(iso(cursor))
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             openCursor()
         } else {
@@ -197,6 +203,15 @@ FocusScope {
                 cal.forceActiveFocus()
                 cal.openCursor()
             }
+        }
+
+        SmallAction {
+            objectName: "newEntryOnDay"
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 4
+            text: qsTr("+ Entry on %1").arg(cal.cursor.toLocaleDateString(cal.locale, "d MMM yyyy"))
+            shortcut: "Ctrl+Enter"
+            onClicked: cal.newEntryOnRequested(cal.iso(cal.cursor))
         }
     }
 }
