@@ -74,4 +74,40 @@ QByteArray decodeRecoveryKey(const QString &text);
 QByteArray encryptFile(const SecretKey &masterKey, const QByteArray &plaintext);
 std::optional<QByteArray> decryptFile(const SecretKey &masterKey, const QByteArray &file, QString *error = nullptr);
 
+// --- Entries written by agents (docs/format.md, "Agent entry files") -------
+
+// An X25519 keypair. Anyone with the public half can seal to it.
+struct BoxKeyPair {
+    QByteArray publicKey;
+    SecretKey secretKey;
+};
+
+// The journal's inbox keypair, derived from the master key whenever it's
+// needed, so only the public half (journal.pub) is ever stored.
+BoxKeyPair inboxKeyPair(const SecretKey &masterKey);
+BoxKeyPair boxKeyPairFromSeed(const SecretKey &seed);
+// The Ed25519 public key for a signing seed.
+QByteArray signPublicKey(const SecretKey &signSeed);
+
+// What an agent holds: a seed for the X25519 keypair it reads its own entries
+// back with, and one for the Ed25519 keypair it signs them with.
+struct AgentKeys {
+    SecretKey boxSeed;
+    SecretKey signSeed;
+};
+
+// An OMA1 file: the agent's signing key, a fresh file key sealed to the
+// journal and to the agent, the stream, and a signature over all of it.
+// Empty when the journal's public key isn't one.
+QByteArray encryptAgentFile(const AgentKeys &agent, const QByteArray &journalPublicKey, const QByteArray &plaintext);
+
+struct AgentFile {
+    QByteArray signPublicKey; // who signed it; the caller checks it is paired
+    QByteArray plaintext;
+};
+// Checks the signature, then opens the file key's copy for the journal
+// (asJournal, with the inbox keypair) or for the agent (its own keypair).
+std::optional<AgentFile> decryptAgentFile(const QByteArray &file, const BoxKeyPair &reader, bool asJournal,
+                                          QString *error = nullptr);
+
 } // namespace Crypto

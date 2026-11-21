@@ -352,6 +352,60 @@ private slots:
         QVERIFY(!Vault::confirmsRecoveryKey(typed, typed.right(4)));
     }
 
+    void inboxKeyComesFromTheMasterKey() {
+        const Crypto::SecretKey master = Crypto::SecretKey::random();
+        const Crypto::BoxKeyPair a = Crypto::inboxKeyPair(master), b = Crypto::inboxKeyPair(master);
+        QCOMPARE(a.publicKey.size(), 32);
+        QCOMPARE(a.publicKey, b.publicKey);
+        QVERIFY(Crypto::inboxKeyPair(Crypto::SecretKey::random()).publicKey != a.publicKey);
+    }
+
+    void agentFilesOpenForTheJournalAndTheirAgentOnly() {
+        const Crypto::SecretKey master = Crypto::SecretKey::random();
+        const Crypto::BoxKeyPair inbox = Crypto::inboxKeyPair(master);
+        const Crypto::AgentKeys claude{Crypto::SecretKey::random(), Crypto::SecretKey::random()};
+        const Crypto::AgentKeys codex{Crypto::SecretKey::random(), Crypto::SecretKey::random()};
+        const QByteArray plaintext = "---\ncreated: 2026-11-21T09:00:00+01:00\nauthor: claude\n---\nToday's work\n"
+                                   + Crypto::randomBytes(70000).toHex();
+        const QByteArray file = Crypto::encryptAgentFile(claude, inbox.publicKey, plaintext);
+        QVERIFY(file.startsWith("OMA1"));
+        QVERIFY(Crypto::encryptAgentFile(claude, "short", plaintext).isEmpty());
+
+        auto asJournal = Crypto::decryptAgentFile(file, inbox, true);
+        QVERIFY(asJournal);
+        QCOMPARE(asJournal->plaintext, plaintext);
+        QCOMPARE(asJournal->signPublicKey, Crypto::signPublicKey(claude.signSeed));
+        auto asClaude = Crypto::decryptAgentFile(file, Crypto::boxKeyPairFromSeed(claude.boxSeed), false);
+        QVERIFY(asClaude);
+        QCOMPARE(asClaude->plaintext, plaintext);
+
+        // Another agent, or the agent posing as the journal, can't open it.
+        QString error;
+        QVERIFY(!Crypto::decryptAgentFile(file, Crypto::boxKeyPairFromSeed(codex.boxSeed), false, &error));
+        QCOMPARE(error, QString("The file wasn't written for this journal."));
+        QVERIFY(!Crypto::decryptAgentFile(file, Crypto::boxKeyPairFromSeed(claude.boxSeed), true));
+        // Nor is an .oma an .omj, or the other way round.
+        QVERIFY(!Crypto::decryptFile(master, file));
+        QVERIFY(!Crypto::decryptAgentFile(Crypto::encryptFile(master, plaintext), inbox, true));
+
+        // Any byte changed or cut, or a signing key swapped, is caught by the signature.
+        for (int at : {0, 10, 40, 120, 200, 240, int(file.size()) / 2, int(file.size()) - 1}) {
+            QByteArray damaged = file;
+            damaged[at] = char(damaged[at] ^ 1);
+            QVERIFY2(!Crypto::decryptAgentFile(damaged, inbox, true), qPrintable(QString::number(at)));
+        }
+        QVERIFY(!Crypto::decryptAgentFile(file.chopped(1), inbox, true));
+        QVERIFY(!Crypto::decryptAgentFile(file + "x", inbox, true));
+        QByteArray swapped = file;
+        swapped.replace(4, 32, Crypto::signPublicKey(codex.signSeed));
+        QVERIFY(!Crypto::decryptAgentFile(swapped, inbox, true, &error));
+        QVERIFY(error.contains("signature"));
+        // An empty body still has its final chunk.
+        auto empty = Crypto::decryptAgentFile(Crypto::encryptAgentFile(codex, inbox.publicKey, {}), inbox, true);
+        QVERIFY(empty);
+        QVERIFY(empty->plaintext.isEmpty());
+    }
+
     // --- The vault ----------------------------------------------------------
 
     void vaultCreatesUnlocksAndRecovers() {
