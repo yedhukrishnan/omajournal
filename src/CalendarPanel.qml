@@ -128,7 +128,7 @@ FocusScope {
                 required property string shortName
                 text: shortName
                 font.pixelSize: 11
-                color: theme.colors.muted
+                color: theme.secondaryText
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }
@@ -174,7 +174,7 @@ FocusScope {
                     font.bold: day.model.today || day.entries > 0
                     color: day.model.today ? theme.accent
                          : day.entries > 0 ? theme.foreground
-                         : theme.colors.muted
+                         : theme.secondaryText
                 }
                 // A dot for a day with entries; true circles keep their radius.
                 Rectangle {

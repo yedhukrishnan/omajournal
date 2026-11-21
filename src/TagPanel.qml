@@ -14,7 +14,7 @@ ColumnLayout {
         Layout.bottomMargin: 4
         visible: backend.tagCounts.length > 0
         text: qsTr("Tags")
-        color: theme.colors.muted
+        color: theme.secondaryText
         font.bold: true
         font.pixelSize: 12
         font.capitalization: Font.AllUppercase
@@ -61,7 +61,7 @@ ColumnLayout {
                 }
                 Label {
                     text: row.modelData.count.toLocaleString(Qt.locale(), "f", 0)
-                    color: theme.colors.muted
+                    color: theme.secondaryText
                     font.pixelSize: 12
                 }
             }

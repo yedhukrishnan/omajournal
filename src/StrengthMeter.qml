@@ -26,7 +26,7 @@ RowLayout {
 
     Label {
         Layout.leftMargin: 6
-        color: theme.colors.muted
+        color: theme.secondaryText
         text: meter.passphrase.length === 0 ? ""
               : meter.strength === 0 ? qsTr("At least 8 characters")
               : meter.strength === 1 ? qsTr("Weak")

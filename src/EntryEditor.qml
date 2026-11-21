@@ -124,7 +124,7 @@ FocusScope {
             Label {
                 objectName: "entryDate"
                 Layout.fillWidth: true
-                color: dateHover.hovered && backend.currentId !== "" ? theme.foreground : theme.colors.muted
+                color: dateHover.hovered && backend.currentId !== "" ? theme.foreground : theme.secondaryText
                 elide: Text.ElideRight
                 text: {
                     translator.language
@@ -254,7 +254,7 @@ FocusScope {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: modelData.count
                                     font.pixelSize: 11
-                                    color: theme.colors.muted
+                                    color: theme.secondaryText
                                 }
                                 TapHandler { onTapped: root.finishTag(modelData.tag) }
                             }
@@ -326,7 +326,7 @@ FocusScope {
                 Label {
                     anchors.verticalCenter: parent.verticalCenter
                     font.pixelSize: 12
-                    color: theme.colors.muted
+                    color: theme.secondaryText
                     text: qsTr("Finding where you are…")
                 }
             }
@@ -404,7 +404,7 @@ FocusScope {
                         y: area.topPadding
                         visible: area.length === 0
                         text: qsTr("Write something…")
-                        color: theme.colors.muted
+                        color: theme.secondaryText
                         font: area.font
                     }
                 }
@@ -414,7 +414,7 @@ FocusScope {
                 anchors.centerIn: parent
                 visible: backend.currentId === "" && !backend.loading
                 horizontalAlignment: Text.AlignHCenter
-                color: theme.colors.muted
+                color: theme.secondaryText
                 text: qsTr("Press Ctrl+N to write an entry.")
             }
         }
@@ -431,7 +431,7 @@ FocusScope {
                 Layout.fillWidth: true
                 elide: Text.ElideRight
                 font.pixelSize: 12
-                color: backend.saveState === Backend.Failed ? theme.colors.red : theme.colors.muted
+                color: backend.saveState === Backend.Failed ? theme.colors.red : theme.secondaryText
                 text: backend.saveState === Backend.Failed ? qsTr("Not saved: %1").arg(backend.saveError)
                     : backend.saveState === Backend.Unsaved ? qsTr("Saving…")
                     : qsTr("Saved, encrypted")

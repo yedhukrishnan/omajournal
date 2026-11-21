@@ -36,7 +36,7 @@ Rectangle {
             visible: chip.removable
             text: "×"
             font.pixelSize: 14
-            color: chip.active ? theme.accentForeground : theme.colors.muted
+            color: chip.active ? theme.accentForeground : theme.secondaryText
             TapHandler { onTapped: chip.removed() }
         }
     }

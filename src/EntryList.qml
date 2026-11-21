@@ -122,7 +122,7 @@ FocusScope {
             Label {
                 objectName: "searchCount"
                 visible: backend.search.active
-                color: theme.colors.muted
+                color: theme.secondaryText
                 font.pixelSize: 12
                 text: backend.search.count === 0 ? qsTr("No entries match.")
                     : qsTr("%Ln entries match", "", backend.search.count)
@@ -223,7 +223,7 @@ FocusScope {
                 bottomPadding: 6
                 leftPadding: 20
                 rightPadding: 20
-                color: theme.colors.muted
+                color: theme.secondaryText
                 font.bold: true
                 font.pixelSize: 12
                 font.capitalization: Font.AllUppercase
@@ -278,11 +278,11 @@ FocusScope {
                             text: row.title !== "" ? row.title : qsTr("Untitled")
                             font.bold: row.title !== ""
                             font.italic: row.title === ""
-                            color: row.title !== "" ? theme.foreground : theme.colors.muted
+                            color: row.title !== "" ? theme.foreground : theme.secondaryText
                             elide: Text.ElideRight
                         }
                         Label {
-                            color: theme.colors.muted
+                            color: theme.secondaryText
                             font.pixelSize: 12
                             text: {
                                 translator.language
@@ -304,7 +304,7 @@ FocusScope {
                         // Escaped in C++; a search's matches come in bold.
                         textFormat: Text.StyledText
                         text: row.snippet
-                        color: theme.colors.muted
+                        color: theme.secondaryText
                         wrapMode: Text.Wrap
                         maximumLineCount: 2
                         elide: Text.ElideRight
@@ -327,7 +327,7 @@ FocusScope {
             verticalAlignment: Text.AlignTop
             topPadding: 32
             wrapMode: Text.Wrap
-            color: theme.colors.muted
+            color: theme.secondaryText
             text: qsTr("No entries yet.")
         }
     }

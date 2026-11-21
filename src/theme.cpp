@@ -8,6 +8,7 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -182,6 +183,25 @@ QVariantMap Theme::colors() const {
 }
 
 // Black or white, whichever reads on the accent (WCAG relative luminance).
+QColor Theme::secondaryText() const {
+    // WCAG's 4.5:1 for body text. Some themes' muted color is meant only for
+    // borders and dimmed marks (Solitude's is about 2.2:1 on its background).
+    auto contrast = [](const QColor &a, const QColor &b) {
+        const double la = luminance(a), lb = luminance(b);
+        return (std::max(la, lb) + .05) / (std::min(la, lb) + .05);
+    };
+    const QColor muted = color("muted"), text = foreground();
+    for (int step = 0; step <= 20; ++step) {
+        const double t = step / 20.0;
+        const QColor mixed = QColor::fromRgbF(float(muted.redF() + (text.redF() - muted.redF()) * t),
+                                              float(muted.greenF() + (text.greenF() - muted.greenF()) * t),
+                                              float(muted.blueF() + (text.blueF() - muted.blueF()) * t));
+        if (contrast(mixed, background()) >= 4.5 && contrast(mixed, color("selection")) >= 4.5)
+            return mixed;
+    }
+    return text;
+}
+
 QColor Theme::accentForeground() const {
     return luminance(accent()) > .179 ? QColor("black") : QColor("white");
 }

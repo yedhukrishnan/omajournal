@@ -17,6 +17,10 @@ class Theme : public QObject {
     Q_PROPERTY(QColor accentForeground READ accentForeground NOTIFY changed)
     Q_PROPERTY(QColor background READ background NOTIFY changed)
     Q_PROPERTY(QColor foreground READ foreground NOTIFY changed)
+    // Quieter text that is still read, such as excerpts and times: the
+    // theme's muted color, brought toward the foreground until it reads on
+    // the background and on a selected row. Muted itself stays for marks.
+    Q_PROPERTY(QColor secondaryText READ secondaryText NOTIFY changed)
     Q_PROPERTY(QVariantMap colors READ colors NOTIFY changed)
     Q_PROPERTY(bool light READ light NOTIFY changed)
     Q_PROPERTY(int radius READ radius NOTIFY changed)
@@ -31,6 +35,7 @@ public:
     QColor accentForeground() const;
     QColor background() const { return color("background"); }
     QColor foreground() const { return color("foreground"); }
+    QColor secondaryText() const;
     QVariantMap colors() const;
     bool light() const { return m_light; }
     int radius() const { return m_radius; }

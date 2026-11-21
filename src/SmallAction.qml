@@ -21,7 +21,7 @@ Rectangle {
         anchors.centerIn: parent
         text: action.text
         font.pixelSize: 12
-        color: hover.hovered ? theme.foreground : theme.colors.muted
+        color: hover.hovered ? theme.foreground : theme.secondaryText
     }
     HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
     TapHandler { onTapped: action.clicked() }

@@ -1001,6 +1001,33 @@ private slots:
         QCOMPARE(qulonglong(kdf["opslimit"].toDouble()), qulonglong(Crypto::KdfLimits::minimum().ops));
     }
 
+    void themeKeepsSecondaryTextReadable() {
+        auto contrast = [](const QColor &a, const QColor &b) {
+            auto lum = [](const QColor &c) {
+                auto f = [](double v) { return v <= .04045 ? v / 12.92 : std::pow((v + .055) / 1.055, 2.4); };
+                return .2126 * f(c.redF()) + .7152 * f(c.greenF()) + .0722 * f(c.blueF());
+            };
+            const double x = lum(a), y = lum(b);
+            return (std::max(x, y) + .05) / (std::min(x, y) + .05);
+        };
+        // Solitude's muted color is for marks; too dim to read text in.
+        QTemporaryDir dim;
+        QVERIFY(QDir(dim.path()).mkpath("theme"));
+        QVERIFY(write(dim.path() + "/theme/colors.toml", "background = \"#101315\"\nforeground = \"#cacccc\"\n"
+                                                         "selection = \"#343d41\"\nmuted = \"#4b4e55\"\n"));
+        Theme solitude(dim.path());
+        QVERIFY(contrast(solitude.secondaryText(), solitude.background()) >= 4.5);
+        QVERIFY(contrast(solitude.secondaryText(), QColor("#343d41")) >= 4.5);
+        QVERIFY(solitude.secondaryText() != solitude.foreground());
+        // A muted color that already reads is used as it is.
+        QTemporaryDir fine;
+        QVERIFY(QDir(fine.path()).mkpath("theme"));
+        QVERIFY(write(fine.path() + "/theme/colors.toml", "background = \"#000000\"\nforeground = \"#ffffff\"\n"
+                                                          "selection = \"#202020\"\nmuted = \"#999999\"\n"));
+        Theme readable(fine.path());
+        QCOMPARE(readable.secondaryText(), QColor("#999999"));
+    }
+
     void themeFallsBack() {
         QTemporaryDir dir;
         Theme theme(dir.path());

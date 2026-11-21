@@ -52,7 +52,7 @@ FocusScope {
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
-                color: theme.colors.muted
+                color: theme.secondaryText
                 text: qsTr("Every entry is encrypted with a passphrase only you know. Choose a folder for the journal; syncing or backing it up only ever copies encrypted files.")
             }
             TextField {
@@ -94,7 +94,7 @@ FocusScope {
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
-                color: theme.colors.muted
+                color: theme.secondaryText
                 text: qsTr("Pick a passphrase you'll remember. A few unrelated words make a strong one. It can't be recovered without the recovery key you'll see next.")
             }
             TextField {
@@ -166,7 +166,7 @@ FocusScope {
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
-                color: theme.colors.muted
+                color: theme.secondaryText
                 text: qsTr("If you forget your passphrase, this key is the only way back in. Write it down or keep it in a password manager. It won't be shown again.")
             }
             Rectangle {

@@ -82,7 +82,7 @@ Popup {
                 required property string shortName
                 text: shortName
                 font.pixelSize: 11
-                color: theme.colors.muted
+                color: theme.secondaryText
                 horizontalAlignment: Text.AlignHCenter
             }
         }

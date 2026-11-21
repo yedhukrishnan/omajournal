@@ -35,7 +35,7 @@ FocusScope {
         Label {
             Layout.fillWidth: true
             text: vault.path
-            color: theme.colors.muted
+            color: theme.secondaryText
             elide: Text.ElideMiddle
         }
 
