@@ -32,6 +32,9 @@ target_link_libraries(omajournal PRIVATE omajournal_core)
 enable_testing()
 add_executable(omajournal_tests tests/omajournal_tests.cpp src/resources.qrc)
 target_link_libraries(omajournal_tests PRIVATE omajournal_core Qt6::Test)
+# The command line tests run the real binary.
+add_dependencies(omajournal_tests omajournal)
+target_compile_definitions(omajournal_tests PRIVATE OMAJOURNAL_BINARY="$<TARGET_FILE:omajournal>")
 add_test(NAME omajournal_tests COMMAND omajournal_tests)
 set_tests_properties(omajournal_tests PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 

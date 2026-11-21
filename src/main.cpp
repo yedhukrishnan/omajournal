@@ -9,12 +9,25 @@
 #include <cstdio>
 
 #include "backend.h"
+#include "cli.h"
 #include "crypto.h"
 #include "theme.h"
 #include "translator.h"
 #include "vault.h"
 
 int main(int argc, char *argv[]) {
+    // Only `omajournal open` shows a window; everything else, bare omajournal
+    // included, is a command, and help for open needs no window either.
+    // QGuiApplication aborts without a display before it reads its
+    // arguments, so commands run offscreen even where the desktop exports
+    // QT_QPA_PLATFORM=wayland.
+    bool command = argc < 2 || qstrcmp(argv[1], "open") != 0;
+    for (int i = 2; i < argc && !command; ++i)
+        for (const char *option : {"-h", "--help", "-v", "--version"})
+            command = command || qstrcmp(argv[i], option) == 0;
+    if (command)
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+
     QGuiApplication app(argc, argv);
     app.setApplicationName("omajournal");
     app.setApplicationVersion("0.1.0");
@@ -29,6 +42,14 @@ int main(int argc, char *argv[]) {
     if (!Crypto::initialize()) {
         std::fputs("omajournal: libsodium couldn't start\n", stderr);
         return 1;
+    }
+
+    if (command) {
+        // The commands' own text is English, for scripts; the vault's
+        // messages follow the Omarchy language, as in the window.
+        Translator translator;
+        app.installTranslator(&translator);
+        return Cli::run(app.arguments());
     }
 
     QQuickStyle::setStyle("Material");

@@ -2,7 +2,7 @@
 Type=Application
 Name=Omajournal
 Comment=Write an encrypted journal
-Exec=omajournal
+Exec=omajournal open
 Icon=omajournal
 Terminal=false
 Categories=Utility;Office;

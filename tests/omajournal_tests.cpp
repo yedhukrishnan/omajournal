@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickItem>
@@ -16,6 +17,9 @@
 #include <QTextDocument>
 #include <QTextLayout>
 #include <QtTest>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "backend.h"
 #include "crypto.h"
@@ -63,6 +67,59 @@ QTextCharFormat formatAt(QTextDocument &document, int line, int column) {
         if (column >= range.start && column < range.start + range.length)
             return range.format;
     return {};
+}
+
+// What a run of the omajournal binary printed, and how it ended.
+struct CliRun {
+    int exitCode = -1;
+    QByteArray out;
+    QByteArray err;
+    QJsonObject json() const { return QJsonDocument::fromJson(out).object(); }
+};
+
+// Runs omajournal with HOME in home, so it reads neither the user's settings
+// nor their language. passphrases, when given, arrive on fd 3 through a
+// pipe, as --passphrase-fd 3 reads them.
+CliRun runCli(const QString &home, QStringList arguments, const QByteArray &passphrases = {},
+              const QByteArray &input = {}) {
+    int fds[2] = {-1, -1};
+    const bool piped = !passphrases.isNull();
+    if (piped) {
+        if (pipe2(fds, O_CLOEXEC) != 0 || ::write(fds[1], passphrases.constData(), passphrases.size()) < 0)
+            return {};
+        close(fds[1]);
+        arguments << "--passphrase-fd" << "3";
+    }
+    QProcess process;
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert("HOME", home);
+    environment.remove("QT_QPA_PLATFORM");
+    process.setProcessEnvironment(environment);
+    const int readEnd = fds[0];
+    if (piped)
+        process.setChildProcessModifier([readEnd] { dup2(readEnd, 3); });
+    process.start(OMAJOURNAL_BINARY, arguments);
+    if (piped)
+        close(readEnd);
+    CliRun run;
+    if (!process.waitForStarted())
+        return run;
+    process.write(input);
+    process.closeWriteChannel();
+    if (!process.waitForFinished(30000))
+        return run;
+    run.exitCode = process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -1;
+    run.out = process.readAllStandardOutput();
+    run.err = process.readAllStandardError();
+    return run;
+}
+
+// A journal with cheap key limits, which the command line reads from its key file.
+bool makeJournal(const QString &directory, const QString &passphrase) {
+    Vault vault(directory + "-settings.json", directory, Crypto::KdfLimits::minimum());
+    QSignalSpy created(&vault, &Vault::created);
+    vault.create(passphrase);
+    return created.wait(10000) && vault.exists();
 }
 
 // Answers location requests with what the test says, when it says.
@@ -769,6 +826,179 @@ private slots:
         QCOMPARE(backend.currentText(), QString("can't be written"));
         QVERIFY(QFile::setPermissions(vault.entriesPath(), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
         QVERIFY(backend.lock());
+    }
+
+    // --- The command line -----------------------------------------------------
+
+    void cliPrintsUsage() {
+        QTemporaryDir home;
+        const CliRun bare = runCli(home.path(), {});
+        QCOMPARE(bare.exitCode, 0);
+        QVERIFY(bare.out.contains("open "));
+        QVERIFY(bare.out.contains("passwd"));
+        const CliRun unknown = runCli(home.path(), {"frobnicate"});
+        QCOMPARE(unknown.exitCode, 1);
+        QVERIFY(unknown.err.contains("no command frobnicate"));
+        const CliRun missing = runCli(home.path(), {"list", "--journal", home.filePath("none")}, "whatever\n");
+        QCOMPARE(missing.exitCode, 1);
+        QVERIFY(missing.err.contains("No journal in"));
+    }
+
+    void cliWritesListsSearchesAndShows() {
+        QTemporaryDir home;
+        const QString journal = home.filePath("journal");
+        QVERIFY(makeJournal(journal, "correct horse battery"));
+        const QStringList at{"--journal", journal};
+        const QByteArray pass = "correct horse battery\n";
+
+        CliRun run = runCli(home.path(),
+                            QStringList{"new", "--json", "--text", "# Morning\n\nCoffee at the café & a <walk>.",
+                                        "--tag", "Walks", "--date", "2026-03-04", "--time", "07:30"} + at,
+                            pass);
+        QVERIFY2(run.exitCode == 0, run.err.constData());
+        const QJsonObject first = run.json()["entry"].toObject();
+        const QString firstId = first["id"].toString();
+        QCOMPARE(firstId.size(), 32);
+        QVERIFY(first["created"].toString().startsWith("2026-03-04T07:30:00"));
+        QCOMPARE(first["tags"].toArray(), QJsonArray{"walks"});
+
+        run = runCli(home.path(), QStringList{"new"} + at, pass, "Second entry about #work\n");
+        QVERIFY2(run.exitCode == 0, run.err.constData());
+        const QString secondId = QString::fromUtf8(run.out).trimmed();
+        QCOMPARE(secondId.size(), 32);
+
+        // Nothing to write, a bad tag and a wrong passphrase all fail.
+        QCOMPARE(runCli(home.path(), QStringList{"new", "--text", ""} + at, pass).exitCode, 1);
+        QCOMPARE(runCli(home.path(), QStringList{"new", "--text", "x", "--tag", "no spaces"} + at, pass).exitCode, 1);
+        run = runCli(home.path(), QStringList{"list"} + at, "wrong horse battery\n");
+        QCOMPARE(run.exitCode, 1);
+        QVERIFY(run.err.contains("That passphrase doesn't open this journal."));
+
+        run = runCli(home.path(), QStringList{"list", "--json"} + at, pass);
+        QCOMPARE(run.exitCode, 0);
+        QJsonArray entries = run.json()["entries"].toArray();
+        QCOMPARE(entries.size(), 2);
+        QCOMPARE(entries[0].toObject()["id"].toString(), secondId);
+        QCOMPARE(entries[1].toObject()["title"].toString(), QString("Morning"));
+        run = runCli(home.path(), QStringList{"list", "--json", "--month", "2026-03"} + at, pass);
+        QCOMPARE(run.json()["entries"].toArray().size(), 1);
+        run = runCli(home.path(), QStringList{"list", "--json", "--tag", "#Work"} + at, pass);
+        entries = run.json()["entries"].toArray();
+        QCOMPARE(entries.size(), 1);
+        QCOMPARE(entries[0].toObject()["id"].toString(), secondId);
+        run = runCli(home.path(), QStringList{"list"} + at, pass);
+        QVERIFY(run.out.contains(firstId.left(8).toUtf8() + "  2026-03-04 07:30  Morning  #walks"));
+
+        // Search ignores case and accents, and its snippet is plain text.
+        run = runCli(home.path(), QStringList{"search", "--json", "CAFE", "walk"} + at, pass);
+        QCOMPARE(run.exitCode, 0);
+        entries = run.json()["entries"].toArray();
+        QCOMPARE(entries.size(), 1);
+        QCOMPARE(entries[0].toObject()["snippet"].toString(), QString("Coffee at the café & a <walk>."));
+        run = runCli(home.path(), QStringList{"search", "--json", "coffee", "--tag", "work"} + at, pass);
+        QCOMPARE(run.json()["entries"].toArray().size(), 0);
+        QCOMPARE(runCli(home.path(), QStringList{"search"} + at, pass).exitCode, 1);
+
+        // An id's start is enough.
+        run = runCli(home.path(), QStringList{"show", firstId.left(6)} + at, pass);
+        QVERIFY2(run.exitCode == 0, run.err.constData());
+        QVERIFY(run.out.startsWith("---\ncreated: 2026-03-04T07:30:00"));
+        QVERIFY(run.out.contains("tags: [walks]\n"));
+        QVERIFY(run.out.contains("Coffee at the café & a <walk>."));
+        run = runCli(home.path(), QStringList{"show", "--json", secondId} + at, pass);
+        QCOMPARE(run.json()["entry"].toObject()["body"].toString(), QString("Second entry about #work\n"));
+        QVERIFY(run.json()["entry"].toObject()["location"].isNull());
+        run = runCli(home.path(), QStringList{"show", "zzzz"} + at, pass);
+        QCOMPARE(run.exitCode, 1);
+        QVERIFY(run.err.contains("No entry has the id zzzz."));
+    }
+
+    void cliExportsAndImports() {
+        QTemporaryDir home;
+        const QString journal = home.filePath("journal");
+        QVERIFY(makeJournal(journal, "correct horse battery"));
+        const QStringList at{"--journal", journal};
+        const QByteArray pass = "correct horse battery\n";
+        QCOMPARE(runCli(home.path(),
+                        QStringList{"new", "--text", "Day one", "--tag", "trip", "--date", "2026-05-01", "--time",
+                                    "09:15"} + at,
+                        pass).exitCode,
+                 0);
+        QCOMPARE(runCli(home.path(), QStringList{"new", "--text", "Day two"} + at, pass).exitCode, 0);
+
+        const QString out = home.filePath("out");
+        QCOMPARE(runCli(home.path(), QStringList{"export", out} + at, pass).exitCode, 1);
+        CliRun run = runCli(home.path(), QStringList{"export", "--decrypt", "--json", out} + at, pass);
+        QVERIFY2(run.exitCode == 0, run.err.constData());
+        QVERIFY(run.err.contains("Warning"));
+        const QJsonArray files = run.json()["files"].toArray();
+        QCOMPARE(files.size(), 2);
+        const QString name = files[1].toObject()["file"].toString();
+        QVERIFY2(QRegularExpression("^2026-05-01-0915-[0-9a-f]{8}\\.md$").match(name).hasMatch(), qPrintable(name));
+        struct stat info;
+        QCOMPARE(stat(QFile::encodeName(out + "/" + name).constData(), &info), 0);
+        QCOMPARE(info.st_mode & 0777, mode_t(0600));
+        QCOMPARE(stat(QFile::encodeName(out).constData(), &info), 0);
+        QCOMPARE(info.st_mode & 0777, mode_t(0700));
+        // A folder that already holds files is never written into.
+        QCOMPARE(runCli(home.path(), QStringList{"export", "--decrypt", out} + at, pass).exitCode, 1);
+
+        // A plain file without front matter is dated by when it last changed.
+        QVERIFY(write(out + "/notes.md", "Plain notes\n"));
+        const QDateTime changed(QDate(2025, 12, 24), QTime(18, 0));
+        QFile notes(out + "/notes.md");
+        QVERIFY(notes.open(QIODevice::ReadWrite));
+        QVERIFY(notes.setFileTime(changed, QFileDevice::FileModificationTime));
+        notes.close();
+
+        const QString other = home.filePath("other");
+        QVERIFY(makeJournal(other, "another passphrase"));
+        run = runCli(home.path(), {"import", "--json", out, "--journal", other}, "another passphrase\n");
+        QVERIFY2(run.exitCode == 0, run.err.constData());
+        QCOMPARE(run.json()["entries"].toArray().size(), 3);
+        run = runCli(home.path(), {"list", "--json", "--journal", other}, "another passphrase\n");
+        const QJsonArray entries = run.json()["entries"].toArray();
+        QCOMPARE(entries.size(), 3);
+        QCOMPARE(entries[1].toObject()["title"].toString(), QString("Day one"));
+        QVERIFY(entries[1].toObject()["created"].toString().startsWith("2026-05-01T09:15:00"));
+        QCOMPARE(entries[1].toObject()["tags"].toArray(), QJsonArray{"trip"});
+        QCOMPARE(entries[2].toObject()["title"].toString(), QString("Plain notes"));
+        QCOMPARE(QDateTime::fromString(entries[2].toObject()["created"].toString(), Qt::ISODate), changed);
+
+        // A file that can't be read stops the import before anything is saved.
+        QVERIFY(write(out + "/zz-broken.md", "---\nno end to the front matter\n"));
+        run = runCli(home.path(), {"import", out, "--journal", other}, "another passphrase\n");
+        QCOMPARE(run.exitCode, 1);
+        QVERIFY(run.err.contains("zz-broken.md"));
+        QCOMPARE(QDir(other + "/e").entryList(QDir::Files).size(), 3);
+    }
+
+    void cliChangesThePassphrase() {
+        QTemporaryDir home;
+        const QString journal = home.filePath("journal");
+        QVERIFY(makeJournal(journal, "correct horse battery"));
+        const QStringList at{"--journal", journal};
+        QCOMPARE(runCli(home.path(), QStringList{"new", "--text", "Kept"} + at, "correct horse battery\n").exitCode, 0);
+
+        CliRun run = runCli(home.path(), QStringList{"passwd"} + at, "correct horse battery\nshort\n");
+        QCOMPARE(run.exitCode, 1);
+        QVERIFY(run.err.contains("at least 8 characters"));
+        run = runCli(home.path(), QStringList{"passwd"} + at, "wrong horse battery\nnew stapler pony\n");
+        QCOMPARE(run.exitCode, 1);
+        run = runCli(home.path(), QStringList{"passwd"} + at, "correct horse battery\n");
+        QCOMPARE(run.exitCode, 1);
+        run = runCli(home.path(), QStringList{"passwd"} + at, "correct horse battery\nnew stapler pony\n");
+        QVERIFY2(run.exitCode == 0, run.err.constData());
+
+        QCOMPARE(runCli(home.path(), QStringList{"list"} + at, "correct horse battery\n").exitCode, 1);
+        run = runCli(home.path(), QStringList{"list", "--json"} + at, "new stapler pony\n");
+        QCOMPARE(run.exitCode, 0);
+        QCOMPARE(run.json()["entries"].toArray().size(), 1);
+        // The journal keeps its cheap limits, so the key file says the same.
+        QFile key(journal + "/journal.key");
+        QVERIFY(key.open(QIODevice::ReadOnly));
+        const QJsonObject kdf = QJsonDocument::fromJson(key.readAll()).object()["kdf"].toObject();
+        QCOMPARE(qulonglong(kdf["opslimit"].toDouble()), qulonglong(Crypto::KdfLimits::minimum().ops));
     }
 
     void themeFallsBack() {
