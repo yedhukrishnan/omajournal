@@ -65,14 +65,21 @@ QString Preferences::resolvedFamily(const QString &family) {
     return QFontInfo(QFont(family)).family();
 }
 
+QString Preferences::regularStyle(const QString &family) {
+    if (family.isEmpty())
+        return {};
+    const QString found = QFontInfo(QFont(family)).styleName();
+    const bool wrongFace = found.contains("Bold", Qt::CaseInsensitive) || found.contains("Italic", Qt::CaseInsensitive);
+    return wrongFace && QFontDatabase::styles(family).contains("Regular") ? QStringLiteral("Regular") : QString();
+}
+
 bool Preferences::fontInstalled() const {
     return m_fontFamily.isEmpty() || isGeneric(m_fontFamily)
         || fontFamilies().contains(m_fontFamily, Qt::CaseInsensitive);
 }
 
 QStringList Preferences::fontFamilies() const {
-    // Asked for only once the picker opens, so starting the app doesn't wait
-    // on hundreds of fonts.
+    // Read once, when first asked, and kept.
     if (m_families.isEmpty()) {
         for (const QString &family : QFontDatabase::families())
             if (!QFontDatabase::isPrivateFamily(family) && !family.startsWith('.'))
@@ -82,6 +89,29 @@ QStringList Preferences::fontFamilies() const {
                   [](const QString &a, const QString &b) { return a.localeAwareCompare(b) < 0; });
     }
     return m_families;
+}
+
+QVariantList Preferences::fontChoices() const {
+    auto choice = [](const QString &family, const QString &name, const QString &detail = {}) {
+        return QVariantMap{{"family", family}, {"name", name}, {"detail", detail}};
+    };
+    QVariantList choices{choice({}, tr("Default"), resolvedFamily({}))};
+    // iA Writer's fonts, made for writing, as Omarchy installs them.
+    for (const auto &[family, name] : {std::pair<QString, QString>{"iA Writer Quattro S", "iA Writer Quattro"},
+                                       {"iA Writer Duo S", "iA Writer Duo"},
+                                       {"iA Writer Mono S", "iA Writer Mono"}})
+        if (fontFamilies().contains(family))
+            choices << choice(family, name);
+    choices << choice("serif", tr("Serif"), resolvedFamily("serif"))
+            << choice("monospace", tr("Monospace"), resolvedFamily("monospace"));
+    // A font chosen before, or written into settings.json by hand, stays in
+    // view, so the list always shows what the editor uses.
+    const bool listed = std::any_of(choices.begin(), choices.end(), [this](const QVariant &c) {
+        return c.toMap().value("family").toString() == m_fontFamily;
+    });
+    if (!listed)
+        choices << choice(m_fontFamily, m_fontFamily);
+    return choices;
 }
 
 void Preferences::save() {

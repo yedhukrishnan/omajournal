@@ -1094,8 +1094,20 @@ private slots:
             preferences.setFontSize(Preferences::maximumSize);
             QCOMPARE(changed.size(), 2);
             QVERIFY(preferences.fontInstalled());
+            // The short list: the desktop's font first, serif and monospace
+            // always, and a font chosen outside it added at the end.
+            auto families = [&] {
+                QStringList list;
+                for (const QVariant &choice : preferences.fontChoices())
+                    list << choice.toMap().value("family").toString();
+                return list;
+            };
+            QCOMPARE(families().first(), QString());
+            QVERIFY(families().contains("serif") && families().contains("monospace"));
+            QVERIFY(families().size() <= 6);
             preferences.setFontFamily("No Such Font Anywhere");
             QVERIFY(!preferences.fontInstalled());
+            QCOMPARE(families().last(), QString("No Such Font Anywhere"));
             QVERIFY(preferences.saveError().isEmpty());
         }
         Preferences again(settings);
@@ -1532,9 +1544,12 @@ private slots:
         QTest::keyClick(window, Qt::Key_Comma, Qt::ControlModifier);
         auto *settings = window->findChild<QObject *>("settingsPopup");
         QTRY_VERIFY(settings->property("opened").toBool());
-        QTRY_VERIFY(item("fontFilter")->hasActiveFocus());
-        QTest::keyClick(window, Qt::Key_Down); // Default, then Serif
-        QCOMPARE(editorFamily(), QString("serif"));
+        QTRY_VERIFY(item("fontList")->hasActiveFocus());
+        // Default is first; what follows depends on the fonts installed.
+        const QString second = preferences.fontChoices().value(1).toMap().value("family").toString();
+        QVERIFY(!second.isEmpty());
+        QTest::keyClick(window, Qt::Key_Down);
+        QCOMPARE(editorFamily(), second);
         QCOMPARE(preferences.fontFamily(), QString());
         QTest::keyClick(window, Qt::Key_Escape);
         QTRY_VERIFY(!settings->property("visible").toBool());
@@ -1545,10 +1560,10 @@ private slots:
         QTRY_VERIFY(settings->property("opened").toBool());
         QTest::keyClick(window, Qt::Key_Down);
         QTest::keyClick(window, Qt::Key_Return);
-        QCOMPARE(preferences.fontFamily(), QString("serif"));
+        QCOMPARE(preferences.fontFamily(), second);
         QTest::keyClick(window, Qt::Key_Escape);
         QTRY_VERIFY(!settings->property("visible").toBool());
-        QCOMPARE(editorFamily(), QString("serif"));
+        QCOMPARE(editorFamily(), second);
         QTest::keyClick(window, Qt::Key_Equal, Qt::ControlModifier);
         QCOMPARE(editor->property("font").value<QFont>().pixelSize(), Preferences::defaultSize + 1);
         QTest::keyClick(window, Qt::Key_0, Qt::ControlModifier);

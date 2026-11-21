@@ -14,8 +14,8 @@ a calendar or in a timeline, and keep them unreadable to anyone without your pas
 - **Where and when:** Ctrl+G records where you are, and Ctrl+D (or a click on the date) moves an entry to
   another day or time.
 - **Writing font:** in Settings (Ctrl+,), pick the font entries are written in: the desktop's default,
-  serif, monospace, or any installed font, with a size. Moving through the list previews each font in
-  the editor. Only the editor changes; the entries stay plain Markdown.
+  iA Writer Quattro, Duo or Mono, serif or monospace, with a size. Moving through the list previews each
+  font in the editor. Only the editor changes; the entries stay plain Markdown.
 - **Search:** Ctrl+F narrows the timeline to entries holding every word you type, whatever their case or
   accents, and highlights the matches.
 

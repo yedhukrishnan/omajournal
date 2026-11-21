@@ -4,7 +4,7 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 
 // Settings, on Ctrl+, as in most desktop apps. For now that's the writing
-// font and its size: moving through the list shows each font in the editor;
+// font and its size, from a short list: moving through it shows each font in the editor;
 // Enter or a click keeps it, and Escape or closing goes back to the font
 // from before. The editor stays in view, so the popup doesn't dim it.
 Popup {
@@ -12,28 +12,24 @@ Popup {
     objectName: "settingsPopup"
 
     property bool rightToLeft: false
-    // The desktop's own choices first, then every installed family.
+    // The fonts on offer, read when the popup opens: a preview changes the
+    // font, and a live binding would reset the list under the highlight.
     property var rows: []
-    // The rows holding what's typed in the search field.
-    readonly property var matches: {
-        const typed = filter.text.trim().toLowerCase()
-        if (typed === "")
-            return rows
-        return rows.filter((r) => r.name.toLowerCase().indexOf(typed) >= 0
-                                  || r.detail.toLowerCase().indexOf(typed) >= 0)
-    }
 
     // Shows the highlighted font in the editor without choosing it.
     function browse() {
-        if (list.currentIndex >= 0 && list.currentIndex < matches.length)
-            preferences.previewFont(matches[list.currentIndex].family)
+        if (list.currentIndex >= 0 && list.currentIndex < rows.length)
+            preferences.previewFont(rows[list.currentIndex].family)
     }
     function choose(index) {
-        if (index < 0 || index >= matches.length)
+        if (index < 0 || index >= rows.length)
             return
-        preferences.fontFamily = matches[index].family
+        preferences.fontFamily = rows[index].family
         // Ending the preview also takes the highlight to the chosen row.
         preferences.endPreview()
+        // The chosen font may drop a row it had added before.
+        rows = preferences.fontChoices
+        list.currentIndex = rows.findIndex((r) => r.family === preferences.fontFamily)
     }
 
     // Over the calendar and timeline, so the editor stays in view while a
@@ -53,20 +49,9 @@ Popup {
     }
 
     onAboutToShow: {
-        const desktop = qsTr("Desktop fonts"), installed = qsTr("Installed fonts")
-        const generic = [
-            { family: "", name: qsTr("Default") },
-            { family: "serif", name: qsTr("Serif") },
-            { family: "monospace", name: qsTr("Monospace") }
-        ]
-        // Listing every installed font takes a moment, so it waits until now.
-        rows = generic.map((g) => ({ family: g.family, name: g.name, detail: preferences.resolvedFamily(g.family),
-                                     section: desktop }))
-               .concat(preferences.fontFamilies.map((f) => ({ family: f, name: f, detail: "", section: installed })))
-        filter.text = ""
+        rows = preferences.fontChoices
         list.currentIndex = rows.findIndex((r) => r.family === preferences.fontFamily)
-        list.positionViewAtIndex(Math.max(0, list.currentIndex), ListView.Contain)
-        filter.forceActiveFocus()
+        list.forceActiveFocus()
     }
     // Whatever closed it, only a chosen font stays; a font being tried goes.
     onClosed: preferences.endPreview()
@@ -116,61 +101,32 @@ Popup {
             font.bold: true
         }
 
-        TextField {
-            id: filter
-            objectName: "fontFilter"
-            Layout.fillWidth: true
-            placeholderText: qsTr("Search fonts")
-            Material.roundedScale: theme.radius
-            onTextEdited: {
-                list.currentIndex = popup.matches.length > 0 ? 0 : -1
-                popup.browse()
-            }
-            Keys.onDownPressed: {
-                list.incrementCurrentIndex()
-                popup.browse()
-            }
-            Keys.onUpPressed: {
-                list.decrementCurrentIndex()
-                popup.browse()
-            }
-            Keys.onReturnPressed: popup.choose(list.currentIndex)
-            Keys.onEnterPressed: popup.choose(list.currentIndex)
-        }
-
         ListView {
             id: list
             objectName: "fontList"
             Layout.fillWidth: true
-            Layout.preferredHeight: 280
-            clip: true
-            model: popup.matches
-            highlightMoveDuration: 0
-            boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar {}
+            Layout.preferredHeight: contentHeight
+            interactive: false
+            model: popup.rows
+            focus: true
+            keyNavigationEnabled: false
+            Keys.onDownPressed: {
+                incrementCurrentIndex()
+                popup.browse()
+            }
+            Keys.onUpPressed: {
+                decrementCurrentIndex()
+                popup.browse()
+            }
+            Keys.onReturnPressed: popup.choose(currentIndex)
+            Keys.onEnterPressed: popup.choose(currentIndex)
 
             delegate: Column {
                 id: row
                 required property var modelData
                 required property int index
                 readonly property bool chosen: preferences.fontFamily === modelData.family
-                // A heading above the first row of each group.
-                readonly property bool firstOfSection: index === 0
-                    || popup.matches[index - 1].section !== modelData.section
                 width: ListView.view.width
-
-                Label {
-                    visible: row.firstOfSection
-                    width: parent.width
-                    topPadding: row.index === 0 ? 0 : 10
-                    bottomPadding: 4
-                    leftPadding: 10
-                    text: row.modelData.section
-                    color: theme.secondaryText
-                    font.pixelSize: 11
-                    font.bold: true
-                    font.capitalization: Font.AllUppercase
-                }
 
                 Rectangle {
                     width: parent.width
@@ -209,6 +165,7 @@ Popup {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Aa Bb 123"
                         font.family: row.modelData.family !== "" ? row.modelData.family : Qt.application.font.family
+                        font.styleName: preferences.regularStyle(row.modelData.family)
                         font.pixelSize: 16
                         color: theme.secondaryText
                     }
@@ -216,13 +173,6 @@ Popup {
                     TapHandler { onTapped: popup.choose(row.index) }
                 }
             }
-        }
-
-        Label {
-            visible: list.count === 0
-            text: qsTr("No font has that name.")
-            color: theme.secondaryText
-            font.pixelSize: 12
         }
 
         RowLayout {

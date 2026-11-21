@@ -387,6 +387,7 @@ FocusScope {
                     bottomPadding: 120
                     // The writing font; empty means the desktop's own.
                     font.family: preferences.editorFamily !== "" ? preferences.editorFamily : Qt.application.font.family
+                    font.styleName: preferences.editorStyle
                     font.pixelSize: preferences.fontSize
                     color: theme.foreground
                     selectionColor: theme.colors.selection
