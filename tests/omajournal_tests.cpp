@@ -27,6 +27,7 @@
 #include "entrystore.h"
 #include "location.h"
 #include "markdownhighlighter.h"
+#include "preferences.h"
 #include "searchmodel.h"
 #include "textfold.h"
 #include "vault.h"
@@ -112,6 +113,20 @@ CliRun runCli(const QString &home, QStringList arguments, const QByteArray &pass
     run.out = process.readAllStandardOutput();
     run.err = process.readAllStandardError();
     return run;
+}
+
+// The item named name among root's visual descendants. A Repeater's items
+// have a visual parent but no QObject parent, so findChild misses them.
+QQuickItem *descendant(QQuickItem *root, const QString &name) {
+    if (!root)
+        return nullptr;
+    for (QQuickItem *child : root->childItems()) {
+        if (child->objectName() == name)
+            return child;
+        if (QQuickItem *found = descendant(child, name))
+            return found;
+    }
+    return nullptr;
 }
 
 // A journal with cheap key limits, which the command line reads from its key file.
@@ -1001,6 +1016,40 @@ private slots:
         QCOMPARE(qulonglong(kdf["opslimit"].toDouble()), qulonglong(Crypto::KdfLimits::minimum().ops));
     }
 
+    void preferencesKeepTheFontBesideTheJournal() {
+        QTemporaryDir dir;
+        const QString settings = dir.filePath("settings.json");
+        QVERIFY(write(settings, "{\"journal\": \"/somewhere/Journal\"}"));
+        {
+            Preferences preferences(settings);
+            QCOMPARE(preferences.fontFamily(), QString());
+            QCOMPARE(preferences.fontSize(), Preferences::defaultSize);
+            QVERIFY(preferences.fontInstalled());
+            QSignalSpy changed(&preferences, &Preferences::fontChanged);
+            preferences.setFontFamily("serif");
+            preferences.setFontSize(99);
+            QCOMPARE(preferences.fontSize(), Preferences::maximumSize);
+            preferences.setFontSize(Preferences::maximumSize);
+            QCOMPARE(changed.size(), 2);
+            QVERIFY(preferences.fontInstalled());
+            preferences.setFontFamily("No Such Font Anywhere");
+            QVERIFY(!preferences.fontInstalled());
+            QVERIFY(preferences.saveError().isEmpty());
+        }
+        Preferences again(settings);
+        QCOMPARE(again.fontFamily(), QString("No Such Font Anywhere"));
+        QCOMPARE(again.fontSize(), Preferences::maximumSize);
+        // The vault's key is left as it was, and the vault keeps the font's.
+        QCOMPARE(Vault(settings).path(), QString("/somewhere/Journal"));
+        again.setFontFamily("");
+        again.resetFontSize();
+        const QJsonObject saved = QJsonDocument::fromJson([&] {
+            QFile file(settings);
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+        }()).object();
+        QCOMPARE(saved, QJsonObject({{"journal", "/somewhere/Journal"}}));
+    }
+
     void themeKeepsSecondaryTextReadable() {
         auto contrast = [](const QColor &a, const QColor &b) {
             auto lum = [](const QColor &c) {
@@ -1224,6 +1273,7 @@ private slots:
         Vault vault(dir.filePath("settings.json"), dir.filePath("journal"), Crypto::KdfLimits::minimum());
         FakeLocation location;
         Backend backend(&vault, &location);
+        Preferences preferences(dir.filePath("settings.json"));
 
         QQmlApplicationEngine engine;
         QStringList warnings;
@@ -1235,6 +1285,7 @@ private slots:
         engine.rootContext()->setContextProperty("theme", &theme);
         engine.rootContext()->setContextProperty("vault", &vault);
         engine.rootContext()->setContextProperty("backend", &backend);
+        engine.rootContext()->setContextProperty("preferences", &preferences);
         engine.load(QUrl("qrc:/Main.qml"));
         QVERIFY(!engine.rootObjects().isEmpty());
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
@@ -1409,6 +1460,30 @@ private slots:
         QCOMPARE(backend.currentTags(), QStringList({"trip"}));
         QTRY_VERIFY(!suggestions->property("visible").toBool());
         QTRY_COMPARE(backend.saveState(), Backend::Saved);
+
+        // The writing font changes the editor at once, and typing goes back
+        // to the entry when the picker closes.
+        auto *editor = item("editor");
+        QTest::keyClick(window, Qt::Key_F, Qt::ControlModifier | Qt::ShiftModifier);
+        auto *fontPopup = window->findChild<QObject *>("fontPopup");
+        QTRY_VERIFY(fontPopup->property("opened").toBool());
+        QTRY_VERIFY(item("fontFilter")->hasActiveFocus());
+        click(descendant(fontPopup->property("contentItem").value<QQuickItem *>(), "fontPreset-serif"));
+        QCOMPARE(preferences.fontFamily(), QString("serif"));
+        QCOMPARE(editor->property("font").value<QFont>().family(), QString("serif"));
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!fontPopup->property("visible").toBool());
+        QTRY_VERIFY(editor->hasActiveFocus());
+        QTest::keyClick(window, Qt::Key_Equal, Qt::ControlModifier);
+        QCOMPARE(editor->property("font").value<QFont>().pixelSize(), Preferences::defaultSize + 1);
+        QTest::keyClick(window, Qt::Key_0, Qt::ControlModifier);
+        QCOMPARE(editor->property("font").value<QFont>().pixelSize(), Preferences::defaultSize);
+        click(item("fontButton"));
+        QTRY_VERIFY(fontPopup->property("opened").toBool());
+        click(descendant(fontPopup->property("contentItem").value<QQuickItem *>(), "fontPreset-default"));
+        QCOMPARE(preferences.fontFamily(), QString());
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!fontPopup->property("visible").toBool());
 
         // The calendar takes the keyboard, and pages through months.
         QTest::keyClick(window, Qt::Key_1, Qt::ControlModifier);

@@ -10,6 +10,7 @@ FocusScope {
 
     signal lockRequested()
     signal timelineRequested()
+    signal fontRequested()
 
     function focusEditor() { area.forceActiveFocus() }
     function startTag() {
@@ -139,6 +140,12 @@ FocusScope {
                 ToolTip.visible: dateHover.hovered && backend.currentId !== ""
                 ToolTip.delay: 600
                 ToolTip.text: qsTr("Change the date and time (Ctrl+D)")
+            }
+            SmallAction {
+                objectName: "fontButton"
+                text: "Aa"
+                shortcut: qsTr("Writing font (Ctrl+Shift+F)")
+                onClicked: root.fontRequested()
             }
             Button {
                 objectName: "lockButton"
@@ -378,7 +385,9 @@ FocusScope {
                     rightPadding: leftPadding
                     topPadding: 16
                     bottomPadding: 120
-                    font.pixelSize: 16
+                    // The writing font; empty means the desktop's own.
+                    font.family: preferences.fontFamily !== "" ? preferences.fontFamily : Qt.application.font.family
+                    font.pixelSize: preferences.fontSize
                     color: theme.foreground
                     selectionColor: theme.colors.selection
                     selectedTextColor: theme.foreground

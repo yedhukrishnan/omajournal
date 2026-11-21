@@ -11,6 +11,7 @@
 #include "backend.h"
 #include "cli.h"
 #include "crypto.h"
+#include "preferences.h"
 #include "theme.h"
 #include "translator.h"
 #include "vault.h"
@@ -63,6 +64,7 @@ int main(int argc, char *argv[]) {
     Theme theme;
     Vault vault;
     Backend backend(&vault);
+    Preferences preferences;
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
@@ -70,6 +72,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("vault", &vault);
     engine.rootContext()->setContextProperty("backend", &backend);
+    engine.rootContext()->setContextProperty("preferences", &preferences);
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;

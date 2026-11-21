@@ -98,6 +98,27 @@ ApplicationWindow {
         enabled: win.journalOpen
         onActivated: content.item.focusList()
     }
+    // The writing font: a picker, and the size from the keyboard.
+    Shortcut {
+        sequence: "Ctrl+Shift+F"
+        enabled: win.journalOpen
+        onActivated: fontPopup.opened ? fontPopup.close() : fontPopup.open()
+    }
+    Shortcut {
+        sequences: [StandardKey.ZoomIn, "Ctrl+="]
+        enabled: win.journalOpen
+        onActivated: preferences.enlargeFont()
+    }
+    Shortcut {
+        sequences: [StandardKey.ZoomOut]
+        enabled: win.journalOpen
+        onActivated: preferences.shrinkFont()
+    }
+    Shortcut {
+        sequence: "Ctrl+0"
+        enabled: win.journalOpen
+        onActivated: preferences.resetFontSize()
+    }
     Shortcut {
         sequence: "Ctrl+3"
         enabled: win.journalOpen
@@ -127,6 +148,7 @@ ApplicationWindow {
             function onCreating() { win.settingUp = true }
             function onFinished() { win.settingUp = false }
             function onLockRequested() { win.lockJournal() }
+            function onFontRequested() { fontPopup.open() }
             function onNewEntryRequested() {
                 backend.newEntry()
                 content.item.focusEditor()
@@ -188,6 +210,13 @@ ApplicationWindow {
                 }
             }
         }
+    }
+
+    FontPopup {
+        id: fontPopup
+        rightToLeft: win.rightToLeft
+        // The font stays chosen; typing goes back to the entry.
+        onClosed: if (win.journalOpen) content.item.focusEditor()
     }
 
     ShortcutsOverlay {

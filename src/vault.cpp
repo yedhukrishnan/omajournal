@@ -1,5 +1,7 @@
 #include "vault.h"
 
+#include "settings.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -58,11 +60,8 @@ QString normalizedRecovery(const QString &text) {
 
 Vault::Vault(const QString &settingsFile, const QString &defaultPath, const Crypto::KdfLimits &limits, QObject *parent)
     : QObject(parent),
-      m_settingsFile(settingsFile.isEmpty() ? QDir::homePath() + "/.config/omajournal/settings.json" : settingsFile),
-      m_limits(limits) {
-    QFile settings(m_settingsFile);
-    if (settings.open(QIODevice::ReadOnly))
-        m_path = QJsonDocument::fromJson(settings.readAll()).object().value("journal").toString();
+      m_settingsFile(settingsFile.isEmpty() ? Settings::defaultFile() : settingsFile), m_limits(limits) {
+    m_path = Settings::read(m_settingsFile).value("journal").toString();
     if (m_path.isEmpty())
         m_path = defaultPath.isEmpty() ? QDir::homePath() + "/Journal" : defaultPath;
 
@@ -299,11 +298,8 @@ void Vault::run(std::function<Result()> work, bool creating) {
 }
 
 bool Vault::writeSettings() const {
-    QDir().mkpath(QFileInfo(m_settingsFile).absolutePath());
-    QSaveFile file(m_settingsFile);
-    file.setDirectWriteFallback(false);
-    const QByteArray contents = QJsonDocument(QJsonObject{{"journal", m_path}}).toJson();
-    return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size() && file.commit();
+    // Only the journal's key changes, so the preferences stay as they are.
+    return Settings::update(m_settingsFile, {{"journal", m_path}});
 }
 
 int Vault::passphraseStrength(const QString &passphrase) {

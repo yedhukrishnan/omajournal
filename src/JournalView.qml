@@ -14,6 +14,7 @@ FocusScope {
 
     signal lockRequested()
     signal newEntryRequested()
+    signal fontRequested()
 
     readonly property bool narrow: width < 900
 
@@ -86,6 +87,7 @@ FocusScope {
             focus: true
             onLockRequested: view.lockRequested()
             onTimelineRequested: timeline.focusList()
+            onFontRequested: view.fontRequested()
         }
     }
 }
