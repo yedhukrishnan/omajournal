@@ -7,6 +7,7 @@
 #include <QQuickStyle>
 #include <QUrl>
 #include <cstdio>
+#include <sys/prctl.h>
 
 #include "backend.h"
 #include "cli.h"
@@ -17,6 +18,14 @@
 #include "vault.h"
 
 int main(int argc, char *argv[]) {
+    // Before anything is decrypted: no core dump, which systemd-coredump would
+    // write to disk with the entries in it, and no reading this process's
+    // memory through ptrace or /proc by other programs running as the user.
+    if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0) {
+        std::perror("omajournal: prctl");
+        return 1;
+    }
+
     // Only `omajournal open` shows a window; everything else, bare omajournal
     // included, is a command, and help for open needs no window either.
     // QGuiApplication aborts without a display before it reads its

@@ -30,6 +30,8 @@ Setup > Language, all live.
   somewhere safe, such as a password manager or on paper.
 - Locking (Ctrl+Shift+L, or closing the window) saves the open entry, then wipes the key and every
   decrypted entry from memory. Nothing decrypted is ever written to disk.
+- Omajournal turns off core dumps, so a crash can't write your entries to disk, and other programs
+  running as you can't read its memory.
 - **Not hidden:** how many entries there are, their sizes, and when files changed. The passphrase can't
   be reset without the recovery key: lose both and the journal is gone. Full-disk encryption is still
   worth having underneath.

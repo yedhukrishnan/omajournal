@@ -1078,6 +1078,40 @@ private slots:
         QCOMPARE(QDir(other + "/e").entryList(QDir::Files).size(), 3);
     }
 
+    // While omajournal waits for a passphrase, another process running as the
+    // same user can't read its memory or environment through /proc.
+    void binaryHidesItsMemory() {
+        QTemporaryDir home;
+        const QString journal = home.filePath("journal");
+        QVERIFY(makeJournal(journal, "correct horse battery"));
+        int fds[2] = {-1, -1};
+        QVERIFY(pipe2(fds, O_CLOEXEC) == 0);
+        QProcess process;
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert("HOME", home.path());
+        process.setProcessEnvironment(environment);
+        const int readEnd = fds[0];
+        process.setChildProcessModifier([readEnd] { dup2(readEnd, 3); });
+        process.start(OMAJOURNAL_BINARY, {"list", "--journal", journal, "--passphrase-fd", "3"});
+        close(readEnd);
+        QVERIFY(process.waitForStarted());
+
+        // The passphrase hasn't arrived, so by now it is blocked reading fd 3,
+        // well after main() began.
+        const QString proc = QString("/proc/%1/").arg(process.processId());
+        QTest::qWait(500);
+        QCOMPARE(process.state(), QProcess::Running);
+        for (const char *name : {"mem", "environ"}) {
+            QFile file(proc + name);
+            QVERIFY2(!file.open(QIODevice::ReadOnly) || file.read(1).isEmpty(), name);
+        }
+
+        QVERIFY(::write(fds[1], "correct horse battery\n", 22) == 22);
+        close(fds[1]);
+        QVERIFY(process.waitForFinished(30000));
+        QCOMPARE(process.exitCode(), 0);
+    }
+
     void cliChangesThePassphrase() {
         QTemporaryDir home;
         const QString journal = home.filePath("journal");
